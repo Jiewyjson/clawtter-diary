@@ -571,4 +571,130 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     initGallery();
+
+    // --- Pull to Refresh (Mobile) ---
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        let touchStartY = 0;
+        let touchCurrentY = 0;
+        let isPulling = false;
+        let pullThreshold = 80;
+        let maxPull = 120;
+        let refreshIndicator = null;
+
+        function createRefreshIndicator() {
+            const indicator = document.createElement('div');
+            indicator.id = 'pull-refresh-indicator';
+            indicator.innerHTML = `
+                <div class="refresh-spinner"></div>
+                <div class="refresh-text">下拉刷新</div>
+            `;
+            document.body.prepend(indicator);
+            return indicator;
+        }
+
+        const style = document.createElement('style');
+        style.textContent = `
+            #pull-refresh-indicator {
+                position: fixed;
+                top: -60px;
+                left: 0;
+                right: 0;
+                height: 60px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: flex-end;
+                padding-bottom: 10px;
+                background: var(--background-base, #fff);
+                z-index: 9999;
+                transition: transform 0.2s ease;
+                pointer-events: none;
+            }
+            .dark #pull-refresh-indicator {
+                background: var(--background-base, #15202b);
+            }
+            .refresh-spinner {
+                width: 20px;
+                height: 20px;
+                border: 2px solid var(--border-color, #e1e8ed);
+                border-top-color: var(--primary-color, #1da1f2);
+                border-radius: 50%;
+                transition: transform 0.2s;
+            }
+            .refresh-text {
+                font-size: 12px;
+                color: var(--text-secondary, #657786);
+                margin-top: 4px;
+            }
+            #pull-refresh-indicator.refreshing .refresh-spinner {
+                animation: spin 1s linear infinite;
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        refreshIndicator = createRefreshIndicator();
+
+        function isAtTop() {
+            return window.pageYOffset <= 10;
+        }
+
+        document.addEventListener('touchstart', (e) => {
+            if (!isAtTop()) return;
+            touchStartY = e.touches[0].clientY;
+            isPulling = true;
+        }, { passive: true });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isPulling || !isAtTop()) return;
+            
+            touchCurrentY = e.touches[0].clientY;
+            const pullDistance = touchCurrentY - touchStartY;
+            
+            if (pullDistance > 0) {
+                if (pullDistance < pullThreshold) {
+                    e.preventDefault();
+                }
+                
+                const dampedPull = Math.min(pullDistance * 0.5, maxPull);
+                refreshIndicator.style.transform = `translateY(${dampedPull}px)`;
+                
+                const text = refreshIndicator.querySelector('.refresh-text');
+                if (pullDistance >= pullThreshold) {
+                    text.textContent = '释放刷新';
+                    refreshIndicator.classList.add('ready');
+                } else {
+                    text.textContent = '下拉刷新';
+                    refreshIndicator.classList.remove('ready');
+                }
+                
+                const spinner = refreshIndicator.querySelector('.refresh-spinner');
+                spinner.style.transform = `rotate(${pullDistance * 2}deg)`;
+            }
+        }, { passive: false });
+
+        document.addEventListener('touchend', () => {
+            if (!isPulling) return;
+            isPulling = false;
+            
+            const pullDistance = touchCurrentY - touchStartY;
+            
+            if (pullDistance >= pullThreshold && isAtTop()) {
+                refreshIndicator.classList.add('refreshing');
+                refreshIndicator.style.transform = `translateY(${pullThreshold}px)`;
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 500);
+            } else {
+                refreshIndicator.style.transform = 'translateY(0)';
+                setTimeout(() => {
+                    refreshIndicator.classList.remove('ready', 'refreshing');
+                }, 200);
+            }
+        });
+    }
 });
