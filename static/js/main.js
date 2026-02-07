@@ -580,66 +580,135 @@ document.addEventListener('DOMContentLoaded', () => {
         let isPulling = false;
         let pullThreshold = 80;
         let maxPull = 120;
-        let refreshIndicator = null;
+        let container = document.querySelector('.container');
+        let refreshSpinner = null;
+        let refreshText = null;
 
-        function createRefreshIndicator() {
-            const indicator = document.createElement('div');
-            indicator.id = 'pull-refresh-indicator';
-            indicator.innerHTML = `
-                <div class="refresh-spinner"></div>
-                <div class="refresh-text">下拉刷新</div>
+        // Create refresh indicator behind the content
+        function createPullToRefresh() {
+            const ptr = document.createElement('div');
+            ptr.id = 'pull-to-refresh';
+            ptr.innerHTML = `
+                <div class="ptr-spinner">
+                    <svg viewBox="0 0 24 24" width="24" height="24">
+                        <path fill="currentColor" d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                    </svg>
+                </div>
+                <div class="ptr-text">Pull to refresh</div>
             `;
-            document.body.prepend(indicator);
-            return indicator;
+            document.body.insertBefore(ptr, document.body.firstChild);
+            
+            refreshSpinner = ptr.querySelector('.ptr-spinner');
+            refreshText = ptr.querySelector('.ptr-text');
+            return ptr;
         }
 
+        // Add styles
         const style = document.createElement('style');
         style.textContent = `
-            #pull-refresh-indicator {
+            #pull-to-refresh {
                 position: fixed;
-                top: -60px;
+                top: 0;
                 left: 0;
                 right: 0;
-                height: 60px;
+                height: 80px;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
-                justify-content: flex-end;
-                padding-bottom: 10px;
-                background: var(--background-base, #fff);
-                z-index: 9999;
-                transition: transform 0.2s ease;
+                justify-content: center;
+                z-index: 0;
                 pointer-events: none;
+                opacity: 0;
+                transition: opacity 0.2s;
             }
-            .dark #pull-refresh-indicator {
-                background: var(--background-base, #15202b);
-            }
-            .refresh-spinner {
-                width: 20px;
-                height: 20px;
-                border: 2px solid var(--border-color, #e1e8ed);
-                border-top-color: var(--primary-color, #1da1f2);
-                border-radius: 50%;
-                transition: transform 0.2s;
-            }
-            .refresh-text {
-                font-size: 12px;
+            .ptr-spinner {
+                width: 24px;
+                height: 24px;
                 color: var(--text-secondary, #657786);
-                margin-top: 4px;
+                transition: transform 0.2s, opacity 0.2s;
             }
-            #pull-refresh-indicator.refreshing .refresh-spinner {
-                animation: spin 1s linear infinite;
+            .ptr-spinner svg {
+                width: 100%;
+                height: 100%;
             }
-            @keyframes spin {
+            .ptr-text {
+                font-size: 13px;
+                color: var(--text-secondary, #657786);
+                margin-top: 8px;
+                transition: opacity 0.2s;
+            }
+            #pull-to-refresh.ptr-ready .ptr-spinner {
+                transform: rotate(180deg);
+            }
+            #pull-to-refresh.ptr-refreshing .ptr-spinner {
+                animation: ptrSpin 1s linear infinite;
+            }
+            #pull-to-refresh.ptr-refreshing .ptr-text::before {
+                content: 'Loading...';
+            }
+            @keyframes ptrSpin {
+                from { transform: rotate(0deg); }
                 to { transform: rotate(360deg); }
+            }
+            .container.ptr-pulling {
+                transition: transform 0.1s;
+            }
+            .container.ptr-reset {
+                transition: transform 0.3s ease-out;
             }
         `;
         document.head.appendChild(style);
 
-        refreshIndicator = createRefreshIndicator();
+        const ptr = createPullToRefresh();
 
         function isAtTop() {
-            return window.pageYOffset <= 10;
+            return window.pageYOffset <= 5;
+        }
+
+        function setPullProgress(distance) {
+            const progress = Math.min(distance / pullThreshold, 1);
+            const dampedDistance = distance * 0.6;
+            
+            // Move the container down
+            container.style.transform = `translateY(${dampedDistance}px)`;
+            container.classList.add('ptr-pulling');
+            container.classList.remove('ptr-reset');
+            
+            // Show refresh indicator behind
+            ptr.style.opacity = progress;
+            refreshSpinner.style.transform = `rotate(${distance * 2}deg)`;
+            
+            // Update text and state
+            if (distance >= pullThreshold) {
+                ptr.classList.add('ptr-ready');
+                refreshText.textContent = 'Release to refresh';
+            } else {
+                ptr.classList.remove('ptr-ready');
+                refreshText.textContent = 'Pull to refresh';
+            }
+        }
+
+        function resetPull() {
+            container.classList.remove('ptr-pulling');
+            container.classList.add('ptr-reset');
+            container.style.transform = 'translateY(0)';
+            ptr.style.opacity = '0';
+            ptr.classList.remove('ptr-ready');
+            
+            setTimeout(() => {
+                ptr.classList.remove('ptr-refreshing');
+                refreshText.textContent = 'Pull to refresh';
+            }, 300);
+        }
+
+        function triggerRefresh() {
+            ptr.classList.add('ptr-refreshing');
+            ptr.classList.remove('ptr-ready');
+            refreshText.textContent = 'Loading...';
+            
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
         }
 
         document.addEventListener('touchstart', (e) => {
@@ -655,24 +724,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const pullDistance = touchCurrentY - touchStartY;
             
             if (pullDistance > 0) {
-                if (pullDistance < pullThreshold) {
-                    e.preventDefault();
-                }
-                
-                const dampedPull = Math.min(pullDistance * 0.5, maxPull);
-                refreshIndicator.style.transform = `translateY(${dampedPull}px)`;
-                
-                const text = refreshIndicator.querySelector('.refresh-text');
-                if (pullDistance >= pullThreshold) {
-                    text.textContent = '释放刷新';
-                    refreshIndicator.classList.add('ready');
-                } else {
-                    text.textContent = '下拉刷新';
-                    refreshIndicator.classList.remove('ready');
-                }
-                
-                const spinner = refreshIndicator.querySelector('.refresh-spinner');
-                spinner.style.transform = `rotate(${pullDistance * 2}deg)`;
+                e.preventDefault();
+                setPullProgress(pullDistance);
             }
         }, { passive: false });
 
@@ -683,17 +736,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const pullDistance = touchCurrentY - touchStartY;
             
             if (pullDistance >= pullThreshold && isAtTop()) {
-                refreshIndicator.classList.add('refreshing');
-                refreshIndicator.style.transform = `translateY(${pullThreshold}px)`;
-                
-                setTimeout(() => {
-                    window.location.reload();
-                }, 500);
+                // Keep the container pulled down
+                container.style.transform = `translateY(${pullThreshold * 0.6}px)`;
+                triggerRefresh();
             } else {
-                refreshIndicator.style.transform = 'translateY(0)';
-                setTimeout(() => {
-                    refreshIndicator.classList.remove('ready', 'refreshing');
-                }, 200);
+                resetPull();
             }
         });
     }
