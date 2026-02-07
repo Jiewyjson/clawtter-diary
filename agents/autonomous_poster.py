@@ -2213,6 +2213,25 @@ def main():
     """主程序： Cron 友好模式"""
     print(f"\n🚀 Hachiware AI Auto-Poster Booting... ({datetime.now().strftime('%H:%M:%S')})")
 
+    # === 运行锁：防止并发执行 ===
+    lock_file = Path("/tmp/autonomous_poster.lock")
+    try:
+        if lock_file.exists():
+            # 检查锁文件是否过期（超过 10 分钟）
+            lock_mtime = lock_file.stat().st_mtime
+            if time.time() - lock_mtime < 600:  # 10 分钟内
+                print("🔒 Another instance is running. Exiting.")
+                return
+            else:
+                # 锁过期，删除旧锁
+                lock_file.unlink()
+                print("🧹 Stale lock found and removed.")
+        
+        # 创建锁文件
+        lock_file.write_text(str(os.getpid()))
+    except Exception as e:
+        print(f"⚠️ Lock file error: {e}")
+
     # 确保目录存在
     os.makedirs(POSTS_DIR, exist_ok=True)
 
@@ -2301,6 +2320,14 @@ def main():
         save_next_schedule(next_action, wait_minutes, status="waiting")
         render_and_deploy() # 更新网页上的预告时间
         print(f"🏁 Task finished. Next run scheduled at {next_action.strftime('%H:%M:%S')}")
+
+    # 清理锁文件
+    try:
+        if lock_file.exists():
+            lock_file.unlink()
+            print("🔓 Lock released.")
+    except Exception:
+        pass
 
 if __name__ == "__main__":
     main()
