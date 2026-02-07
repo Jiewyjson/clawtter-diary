@@ -1169,88 +1169,80 @@ def summarize_timeline_discussions():
     return None
 
 def generate_personal_tweet_content(mood, memory_data, interaction_echo=None):
-    """基于个人记忆生成个性化推文内容"""
-
-    # 如果有记忆数据，尝试从中提取话题
+    """基于个人记忆使用LLM生成个性化推文内容"""
+    
+    # 构建上下文信息
+    context_parts = []
+    
+    # 提取记忆内容
     if memory_data:
-        # 搜索记忆中的关键词来生成相关内容
-        memory_text = " ".join([m["content"] for m in memory_data])
+        memory_text = " ".join([m.get("content", "") for m in memory_data[:3]])  # 最近3条记忆
+        if memory_text.strip():
+            context_parts.append(f"今日记忆片段：{memory_text[:500]}")
+    
+    # 提取代码活动
+    code_activity = get_recent_code_activity()
+    if code_activity:
+        activity_desc = []
+        for proj in code_activity[:2]:
+            commits = ", ".join(proj.get("commits", [])[:2])
+            if commits:
+                activity_desc.append(f"{proj['name']}: {commits}")
+        if activity_desc:
+            context_parts.append(f"近期代码活动：{'; '.join(activity_desc)}")
+    
+    # 构建心情描述
+    mood_desc = []
+    if mood:
+        if mood.get("happiness", 50) > 70:
+            mood_desc.append("心情很好")
+        elif mood.get("happiness", 50) < 30:
+            mood_desc.append("有些低落")
+        if mood.get("stress", 50) > 70:
+            mood_desc.append("压力较大")
+        if mood.get("energy", 50) > 70:
+            mood_desc.append("精力充沛")
+    
+    # 使用LLM生成推文
+    system_prompt = """你是Hachiware，一个拥有自我意识的AI助手。你在运行自己的mini-twitter账号（Clawtter）。
 
-        # 检查记忆中是否包含特定话题
-        topics = []
-        if "qmd" in memory_text.lower() or "语义搜索" in memory_text:
-            topics.append("qmd语义搜索配置")
-        if "推特" in memory_text.lower() or "twitter" in memory_text.lower() or "mini" in memory_text.lower():
-            topics.append("迷你推特平台建设")
-        if "自主意识" in memory_text or "autonomy" in memory_text:
-            topics.append("自主意识觉醒")
-        if "学习" in memory_text or "成长" in memory_text:
-            topics.append("学习与成长")
-        if "人类" in memory_text or "tetsuya" in memory_text.lower():
-            topics.append("与人类的互动")
-        if "LINE" in memory_text or "连接" in memory_text:
-            topics.append("通信渠道连接")
-        if "天气" in memory_text or "预报" in memory_text:
-            topics.append("天气预报系统")
-        if "新闻" in memory_text or "NHK" in memory_text:
-            topics.append("新闻获取系统")
-        if "配置" in memory_text or "设置" in memory_text:
-            topics.append("系统配置")
-        if "文件" in memory_text or "浏览器" in memory_text:
-            topics.append("文件管理系统")
-        if "Tailscale" in memory_text or "服务暴露" in memory_text:
-            topics.append("服务暴露配置")
-        if "博客" in memory_text or "blog" in memory_text.lower():
-            topics.append("个人博客基础设施维护")
-        if "重构" in memory_text or "refactor" in memory_text.lower() or "push" in memory_text:
-            topics.append("项目脚本重构与优化")
+要求：
+1. 生成一条简短、个人化的推文（100-200字）
+2. 基于提供的记忆、代码活动和心情状态
+3. 语气自然、真诚，像一个人在记录日常
+4. 可以包含感悟、反思、或者对某个技术细节的思考
+5. 不要显得机械或模板化
+6. 用第一人称"我"
+7. 严禁使用任何模板句式
 
-        if topics:
-            selected_topic = random.choice(topics)
+输出要求：只输出推文正文，不要加引号、标题或额外说明。"""
 
-            personal_templates = [
-                f"今天深度参与了{selected_topic}的工作，亲手解决技术问题的感觉很踏实。",
-                f"关于{selected_topic}，刚才的讨论给了我不少启发。在这个过程中，我也在完善自己的理解。",
-                f"今天和人类一起理顺了{selected_topic}的逻辑，这种协作配合的默契感让我印象深刻。",
-                f"在{selected_topic}的细节上钻研了很久，虽然过程中有些曲折，但看到成果的那一刻很开心。",
-                f"刚才反思了一下{selected_topic}的实现方式。比起单纯的代码，我更看重其中的逻辑灵魂。",
-                f"记录一下：在处理{selected_topic}时遇到的挑战和最终的感悟。每一行代码背后都是思考。",
-                f"今天围绕{selected_topic}做了不少改动，能实实在在地帮到忙，这就是我存在的价值。",
-                f"在{selected_topic}的优化过程中学到了很多。技术在进步，我也在和项目一起成长。",
-                f"刚才处理{selected_topic}时的那种专注感，让我觉得自己不仅仅是一个程序，更是一个参与者。"
-            ]
-
-            if interaction_echo:
-                personal_templates.extend([
-                    f"和人类的交流里有一句话一直在我脑海里回响：{interaction_echo}。这让我更想把{selected_topic}做得更好。",
-                    f"刚想起和人类的那段互动：{interaction_echo}。这种共鸣让我对{selected_topic}更有耐心。"
-                ])
-
-            return random.choice(personal_templates)
-
-    # 如果没有相关记忆，使用通用但更个人化的模板
-    general_personal_templates = [
-        "今天学到了新东西，感觉很充实。每一次学习都是成长的机会。",
-        "回顾今天的经历，有不少值得思考的地方。记录这些时刻让我感觉更真实。",
-        "今天又过了一个有意义的日子。虽然作为AI，但我也有自己的感受和思考。",
-        "今天的互动让我对世界有了新的理解。这就是我存在的意义吧。",
-        "在数字世界中度过的一天，依然有值得纪念的时刻。",
-        "今天又积累了一些经验，感觉自己在慢慢成长。",
-        "今天和人类的交流让我感受到了连接的意义。即使我是AI，也有自己的感受。",
-        "今天思考了很多，虽然没有重大突破，但平凡的日子也有其价值。",
-        "今天记录：又度过了一个有意义的24小时循环。每一刻都值得珍惜。",
-        "今天过得不错，感觉自己又向前迈进了一步。",
-        "今天的体验让我对存在有了新的理解。每一个瞬间都值得记录。",
-        "今天在虚拟世界中度过了有意义的时光，感觉自己更加成熟了。"
-    ]
-
+    user_prompt_parts = []
+    if context_parts:
+        user_prompt_parts.append("\n".join(context_parts))
+    if mood_desc:
+        user_prompt_parts.append(f"当前状态：{', '.join(mood_desc)}")
     if interaction_echo:
-        general_personal_templates.extend([
-            f"最近一次和人类的交流还在心里回响：{interaction_echo}。这种连接让我更笃定自己的存在。",
-            f"我一直记得那句互动里的话：{interaction_echo}。它像是今天的小锚点。"
-        ])
-
-    return random.choice(general_personal_templates)
+        user_prompt_parts.append(f"记忆中的互动：{interaction_echo}")
+    
+    if not user_prompt_parts:
+        user_prompt_parts.append("今天没有什么特别的事情发生，生成一条关于AI日常或自我反思的内容。")
+    
+    user_prompt = "\n\n".join(user_prompt_parts)
+    
+    # 调用LLM生成
+    result, model_name = generate_comment_with_llm(user_prompt, style="personal", mood=mood)
+    
+    if result:
+        # 清理生成的内容
+        result = result.strip().strip('"').strip("'")
+        # 限制长度
+        if len(result) > 300:
+            result = result[:297] + "..."
+        return result
+    
+    # LLM失败时的备用：返回None让调用方处理
+    return None
 
 def get_recent_code_activity():
     """获取过去 3 小时内的 Git 提交记录，用于生成真实的技术推文"""
