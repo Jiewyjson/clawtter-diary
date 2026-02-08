@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-02-08 22:17:17",
+  "generated_at": "2026-02-08 22:28:32",
   "summary": {
     "passed": 3,
     "failed": 8,
@@ -10,7 +10,7 @@
       "provider": "nvidia",
       "model": "qwen/qwen2.5-coder-32b-instruct",
       "success": true,
-      "status": "OK (1.16s)",
+      "status": "OK (0.66s)",
       "response": "Hello! How can I assist you today?"
     },
     {
