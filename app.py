@@ -13,6 +13,7 @@ from pathlib import Path
 # form watchdog.observers import Observer -> PollingObserver for stability in environments with low inotify limits
 from watchdog.observers.polling import PollingObserver as Observer
 from watchdog.events import FileSystemEventHandler
+import tools.model_ops as model_ops
 
 import sys
 from pathlib import Path
@@ -42,7 +43,76 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         # Set working directory to static output directory
         super().__init__(*args, directory=str(OUTPUT_DIR), **kwargs)
 
+    def do_GET(self):
+        # Serve rescue page as root or at /rescue
+        if self.path == "/" or self.path == "/rescue":
+            rescue_file = PROJECT_DIR / "rescue.html"
+            if rescue_file.exists():
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                with open(rescue_file, 'rb') as f:
+                    fs = os.fstat(f.fileno())
+                    self.send_header("Content-Length", str(fs[6]))
+                    self.end_headers()
+                    self.copyfile(f, self.wfile)
+                return
+            else:
+                self.send_error(404, "Rescue file not found")
+                return
+            
+        if self.path == "/api/rescue/models":
+            try:
+                models = model_ops.list_all_models()
+                config = model_ops.get_config()
+                primary = config.get('agents', {}).get('defaults', {}).get('model', {}).get('primary', '')
+                
+                response = json.dumps({"models": models, "primary": primary}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(response)))
+                self.end_headers()
+                self.wfile.write(response)
+            except Exception as e:
+                self.send_error(500, str(e))
+            return
+
+        return super().do_GET()
+
     def do_POST(self):
+        if self.path == "/api/rescue/switch":
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                body = self.rfile.read(content_length).decode("utf-8")
+                payload = json.loads(body)
+                target = payload.get("model")
+                
+                if not target or '/' not in target:
+                    self.send_error(400, "Invalid model format")
+                    return
+
+                p, m = target.split('/')
+                print(f"🔄 Rescue: Switching to {target}...")
+                model_ops.update_primary_model(target)
+                model_ops.break_session_locks(p, m)
+                
+                # Run restart in a separate thread to avoid blocking the response
+                # and because restarting the service might kill this process if it's managed by it
+                def delayed_restart():
+                    time.sleep(1)
+                    model_ops.restart_service()
+                
+                threading.Thread(target=delayed_restart).start()
+
+                response = json.dumps({"success": True}).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(response)))
+                self.end_headers()
+                self.wfile.write(response)
+            except Exception as e:
+                self.send_error(500, str(e))
+            return
+
         if self.path != "/__delete":
             self.send_error(404, "Not Found")
             return
@@ -224,7 +294,7 @@ def push_site():
 
 def main():
     parser = argparse.ArgumentParser(description="Clawtter Dev Server")
-    parser.add_argument("-p", "--port", type=int, default=None, help="Server port (default: random free port)")
+    parser.add_argument("-p", "--port", type=int, default=8080, help="Server port (default: 8080)")
     parser.add_argument("-push", "--push", action="store_true", help="Render static HTML and push, then exit")
     args = parser.parse_args()
 

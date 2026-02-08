@@ -1,0 +1,16 @@
+{
+    "TCP": {
+        "443": {
+            "HTTPS": true
+        }
+    },
+    "Web": {
+        "tetsuya-standard-pc-q35-ich9-2009.tailb4776a.ts.net:443": {
+            "Handlers": {
+                "/": {
+                    "Proxy": "http://127.0.0.1:8025/"
+                }
+            }
+        }
+    }
+}

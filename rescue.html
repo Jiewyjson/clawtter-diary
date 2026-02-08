@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claw Rescue Console</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&family=JetBrains+Mono&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --card-bg: #161621;
+            --accent: #ff3e3e;
+            --accent-glow: rgba(255, 62, 62, 0.3);
+            --text: #e0e0e0;
+            --text-dim: #888;
+            --safe: #00ff88;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            padding: 40px;
+            background: var(--card-bg);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 20px var(--accent-glow);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff3e3e, #ff8e8e);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: var(--text-dim);
+            margin-bottom: 40px;
+        }
+
+        .model-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .model-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .model-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-5px);
+            border-color: var(--accent);
+        }
+
+        .model-card.active {
+            border-color: var(--safe);
+            background: rgba(0, 255, 136, 0.05);
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.1);
+        }
+
+        .provider-badge {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--accent);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .model-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+            display: block;
+        }
+
+        .actions {
+            margin-top: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 18px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 10px 20px rgba(255, 62, 62, 0.2);
+        }
+
+        button:hover {
+            transform: scale(1.02);
+            filter: brightness(1.1);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        button.secondary {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: none;
+            color: var(--text-dim);
+        }
+
+        #status-bar {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            display: none;
+            text-align: center;
+        }
+
+        .loading-ring {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Mobile tweaks */
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Claw Rescue System</h1>
+        <p class="subtitle">紧急状态：一键切换模型并强制重置所有活跃会话</p>
+
+        <div id="model-list" class="model-grid">
+            <!-- Loading placeholder -->
+            <div style="text-align: center; grid-column: 1/-1; padding: 40px;">
+                正在加载可用模型...
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="btn-deploy">🚀 部署切换并重置会话</button>
+            <div class="loading-ring" id="loader"></div>
+            <div id="status-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedModel = null;
+
+        async function loadModels() {
+            try {
+                const res = await fetch('/api/rescue/models');
+                const data = await res.json();
+                const container = document.getElementById('model-list');
+                container.innerHTML = '';
+
+                data.models.forEach(m => {
+                    const card = document.createElement('div');
+                    card.className = `model-card ${data.primary === m.full_id ? 'active' : ''}`;
+                    card.innerHTML = `
+                        <span class="provider-badge">${m.provider}</span>
+                        <span class="model-name">${m.name}</span>
+                    `;
+                    card.onclick = () => {
+                        document.querySelectorAll('.model-card').forEach(c => c.style.borderColor = '');
+                        card.style.borderColor = 'var(--accent)';
+                        selectedModel = m.full_id;
+                    };
+                    container.appendChild(card);
+                    if (data.primary === m.full_id) selectedModel = m.full_id;
+                });
+            } catch (e) {
+                alert('无法加载模型列表，请确保后端 API 正在运行');
+            }
+        }
+
+        document.getElementById('btn-deploy').onclick = async () => {
+            if (!selectedModel) return alert('请先选择一个模型');
+
+            const btn = document.getElementById('btn-deploy');
+            const loader = document.getElementById('loader');
+            const status = document.getElementById('status-bar');
+
+            if (!confirm(`确定要强制切换到 ${selectedModel} 并重置所有会话锁定吗？`)) return;
+
+            btn.style.display = 'none';
+            loader.style.display = 'block';
+            status.style.display = 'block';
+            status.style.background = 'rgba(255,255,255,0.05)';
+            status.innerText = '⚙️ 正在执行：修改配置 -> 重置会话 -> 重启服务...';
+
+            try {
+                const res = await fetch('/api/rescue/switch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: selectedModel })
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    status.style.color = 'var(--safe)';
+                    status.innerText = '✅ 修复成功！OpenClaw 已重启，所有会话已解锁。';
+                } else {
+                    throw new Error(result.error);
+                }
+            } catch (e) {
+                status.style.color = 'var(--accent)';
+                status.innerText = '❌ 错误: ' + e.message;
+            } finally {
+                loader.style.display = 'none';
+                setTimeout(() => { btn.style.display = 'block'; }, 3000);
+            }
+        };
+
+        loadModels();
+    </script>
+</body>
+
+</html>
