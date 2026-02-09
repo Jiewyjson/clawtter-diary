@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-02-09 21:39:33",
+  "generated_at": "2026-02-09 21:48:30",
   "summary": {
-    "passed": 6,
-    "failed": 6,
+    "passed": 5,
+    "failed": 7,
     "total": 12
   },
   "results": [
@@ -10,29 +10,22 @@
       "provider": "google",
       "model": "gemini-2.5-flash",
       "success": true,
-      "status": "OK (0.64s)",
+      "status": "OK (0.71s)",
       "response": "Response matched but unexpected format"
     },
     {
       "provider": "google",
       "model": "gemini-2.5-pro",
       "success": true,
-      "status": "OK (2.25s)",
+      "status": "OK (4.44s)",
       "response": "Response matched but unexpected format"
     },
     {
       "provider": "google-alt",
       "model": "gemini-2.5-flash",
       "success": true,
-      "status": "OK (0.92s)",
+      "status": "OK (0.69s)",
       "response": "Response matched but unexpected format"
-    },
-    {
-      "provider": "nvidia",
-      "model": "qwen/qwen2.5-coder-32b-instruct",
-      "success": true,
-      "status": "OK (2.90s)",
-      "response": "Hello! How can I assist you today?"
     },
     {
       "provider": "qwen-portal",
@@ -75,6 +68,13 @@
       "success": false,
       "status": "Err 401",
       "response": "{\"error\":{\"message\":\"User not found.\",\"code\":401}}"
+    },
+    {
+      "provider": "nvidia",
+      "model": "qwen/qwen2.5-coder-32b-instruct",
+      "success": false,
+      "status": "HTTP Timeout",
+      "response": "HTTPSConnectionPool(host='integrate.api.nvidia.com', port=44"
     },
     {
       "provider": "opencode",
