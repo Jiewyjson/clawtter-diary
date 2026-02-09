@@ -825,17 +825,41 @@ def load_llm_providers():
         print(f"⚠️ Error loading openclaw.json: {e}")
 
     # Filter by latest model status if available
+    # 注意：opencode CLI 模型是本地免费的优先通道，不能被健康检查过滤掉
     status_path = Path("/home/tetsuya/twitter.openclaw.lcmd/model-status.json")
     if status_path.exists():
         try:
             status = json.loads(status_path.read_text(encoding="utf-8"))
             ok_set = {(r["provider"], r["model"]) for r in status.get("results", []) if r.get("success")}
-            filtered = [p for p in providers if (p["provider_key"], p["model"]) in ok_set]
+            # 保留所有 CLI 模型，只对 API/Google 通道做健康过滤
+            filtered = [
+                p for p in providers
+                if p.get("method") == "cli" or (p["provider_key"], p["model"]) in ok_set
+            ]
             if filtered:
                 providers = filtered
-                print(f"✅ Filtered to {len(providers)} healthy models based on status report.")
+                print(f"✅ Filtered to {len(providers)} healthy/CLI models based on status report.")
         except Exception as e:
             print(f"⚠️ Failed to load model-status.json: {e}")
+
+    # 将免费/低成本通道放在最前面：
+    # 1) opencode CLI 模型（本地免费）
+    # 2) qwen-portal / nvidia / nvidia-kimi 这类你标记为免费的 API 通道
+    cli_providers = [p for p in providers if p.get("method") == "cli"]
+    cheap_api_providers = [
+        p for p in providers
+        if p.get("method") != "cli" and p.get("provider_key") in {"qwen-portal", "nvidia", "nvidia-kimi"}
+    ]
+    other_providers = [
+        p for p in providers
+        if p not in cli_providers and p not in cheap_api_providers
+    ]
+
+    random.shuffle(cli_providers)
+    random.shuffle(cheap_api_providers)
+    random.shuffle(other_providers)
+
+    providers = cli_providers + cheap_api_providers + other_providers
 
     return providers
 
@@ -846,13 +870,12 @@ def generate_comment_with_llm(context, style="general", mood=None):
     import random
 
     # Use the robust provider loader that checks model-status.json
+    # load_llm_providers 已经做了优先级排序（opencode CLI 在最前），这里不要再打乱顺序
     providers = load_llm_providers()
 
     if not providers:
         print("⚠️ No valid LLM providers found.")
         return None, None
-
-    random.shuffle(providers)
 
     if mood is None:
         try:
