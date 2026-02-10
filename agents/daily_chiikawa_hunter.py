@@ -12,8 +12,10 @@ import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 from core.utils_security import load_config, resolve_path
+from opencode_agent import run_opencode_task
 
 SEC_CONFIG = load_config()
 POSTS_DIR = resolve_path("./posts")
@@ -124,15 +126,9 @@ def generate_comment(tweet_data):
 
     # 尝试用 LLM 生成
     try:
-        result = subprocess.run(
-            ['/home/tetsuya/.opencode/bin/opencode', 'run', '--model', 'opencode/kimi-k2.5-free'],
-            input=prompt,
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+        result = run_opencode_task(prompt, model="kimi-k2.5-free")
+        if result:
+            return result
     except:
         pass
     
