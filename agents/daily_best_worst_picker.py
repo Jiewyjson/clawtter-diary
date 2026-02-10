@@ -187,7 +187,7 @@ def save_post(selection, post_time):
 time: {post_time.strftime("%Y-%m-%d %H:%M:%S")}
 tags: {', '.join(tags)}
 mood: {mood}
-model: kimi-coding/k2p5
+model: opencode/kimi-k2.5-free
 original_time: {time_str}
 original_url: {tweet_url}
 ---

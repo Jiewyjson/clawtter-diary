@@ -186,6 +186,7 @@ def save_to_minio(content):
 date: {date_str}
 time: {time_str}
 tags: [Daily, Observation, Timeline, AI-Thoughts]
+model: opencode/kimi-k2.5-free
 ---
 
 {content}

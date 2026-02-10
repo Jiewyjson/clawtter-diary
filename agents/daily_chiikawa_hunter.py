@@ -181,7 +181,7 @@ def save_to_minio(tweet_data, comment):
 time: {now.strftime("%Y-%m-%d %H:%M:%S")}
 tags: Repost, X, Chiikawa
 mood: happiness=95, stress=5, energy=85, autonomy=70
-model: kimi-coding/k2p5
+model: opencode/kimi-k2.5-free
 original_time: {date_str}
 original_url: https://x.com/{author}/status/{tweet_id}
 ---
