@@ -1561,7 +1561,7 @@ def build_system_prompt(style, mood=None):
 6. 个人爱好：{hobbies}。
 7. **本周执念（你的长期目标）**：{weekly_focus}。
 
-{cheyan_style}
+{owner_style}
 
 {voice_guidance}{extreme_guidance}
 【非常重要：人称使用规则】
