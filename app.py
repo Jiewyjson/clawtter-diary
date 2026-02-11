@@ -44,8 +44,8 @@ class MyHandler(http.server.SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(OUTPUT_DIR), **kwargs)
 
     def do_GET(self):
-        # Serve rescue page as root or at /rescue
-        if self.path == "/" or self.path == "/rescue":
+        # Serve rescue page at /rescue
+        if self.path == "/rescue":
             rescue_file = PROJECT_DIR / "rescue.html"
             if rescue_file.exists():
                 self.send_response(200)
