@@ -153,49 +153,107 @@ def load_recent_memory():
 
     return memory_files
 
-def extract_interaction_echo(memory_data):
-    """从最近记忆里提取一条安全的互动回声（避免敏感信息）"""
-    if not memory_data:
-        return None
+def get_system_introspection():
+    """获取系统运行状态"""
+    stats = {}
+    try:
+        # 负载
+        uptime = subprocess.check_output(['uptime'], text=True).strip()
+        stats['uptime'] = uptime
+        
+        # 负载数值 (1, 5, 15 min)
+        load = os.getloadavg()
+        stats['load'] = load
+        
+        # 内存
+        free = subprocess.check_output(['free', '-m'], text=True).splitlines()
+        mem_line = free[1].split()
+        stats['mem_used_mb'] = int(mem_line[2])
+        stats['mem_total_mb'] = int(mem_line[1])
+        stats['mem_percent'] = round(stats['mem_used_mb'] / stats['mem_total_mb'] * 100, 1)
+        
+        # 磁盘
+        df = subprocess.check_output(['df', '-h', '/'], text=True).splitlines()[1].split()
+        stats['disk_percent'] = df[4].rstrip('%')
+        
+        # 时间感
+        now = datetime.now()
+        stats['hour'] = now.hour
+        stats['is_weekend'] = now.weekday() >= 5
+        
+    except Exception as e:
+        stats['error'] = str(e)
+    return stats
 
-    keywords = ["人类", "tetsuya", "互动", "交流", "对话", "聊天", "讨论", "协作", "一起", "回应", "反馈", "指示", "陪伴"]
-    extra_sensitive = [
-        "http", "https", "/home/", "~/", "api", "apikey", "api key", "token",
-        "password", "密码", "credential", "verification", "验证码", "密钥", "key",
-        "claim", "sk-"
-    ]
+def get_human_activity_echo():
+    """通过文件修改记录感知主人的活动"""
+    active_projects = []
+    try:
+        # 查看最近 2 小时内修改过的文件 (排除 .git, __pycache__ 等)
+        # 限制在 /home/tetsuya 目录下的一些关键目录
+        cmd = [
+            'find', '/home/tetsuya/mini-twitter', '/home/tetsuya/project', 
+            '-mmin', '-120', '-type', 'f', 
+            '-not', '-path', '*/.*', 
+            '-not', '-path', '*/__pycache__*', 
+            '-not', '-path', '*/node_modules*'
+        ]
+        files = subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL).splitlines()
+        
+        if files:
+            # 统计文件后缀
+            exts = [Path(f).suffix for f in files if Path(f).suffix]
+            from collections import Counter
+            common_exts = Counter(exts).most_common(3)
+            
+            # 识别项目
+            projects = set()
+            for f in files:
+                if 'mini-twitter' in f: projects.add('Mini Twitter')
+                if 'blog' in f: projects.add('Personal Blog')
+                if 'Terebi' in f: projects.add('Terebi Tool')
+            
+            active_projects = list(projects)
+            return {
+                "active_files_count": len(files),
+                "top_languages": [e[0] for e in common_exts],
+                "projects": active_projects,
+                "recent_file": Path(files[0]).name if files else None
+            }
+    except Exception:
+        pass
+    return None
 
-    text = "\n".join([m.get("content", "") for m in memory_data if m.get("content")])
-    text = desensitize_text(text)
-    candidates = []
-
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        # remove markdown bullets/headings/quotes
-        line = re.sub(r'^[#>\-\*\d\.\s]+', '', line).strip()
-        if not line:
-            continue
-        lower = line.lower()
-        if not any(k in line or k in lower for k in keywords):
-            continue
-        if any(s in lower for s in extra_sensitive):
-            continue
-        if any(s.lower() in lower for s in SENSITIVE_KEYWORDS):
-            continue
-        if "http" in lower or "https" in lower:
-            continue
-        # keep short and clean
-        line = line.replace(""", "").replace(""", "").replace('"', '').replace("'", "")
-        line = re.sub(r'`.*?`', '', line).strip()
-        if 6 <= len(line) <= 80:
-            candidates.append(line)
-
-    if not candidates:
-        return None
-    picked = random.choice(candidates)
-    return picked[:60].rstrip()
+def get_task_history():
+    """获取 AI 助手最近完成的任务记录 (来自 memory/2026-02-11.md 等)"""
+    # 我们可以从最近的记忆日志中提取 "实施内容" 或 "工作总结"
+    recent_tasks = []
+    try:
+        memory_dir = resolve_path(SEC_CONFIG["paths"].get("memory_dir", "~/.openclaw/workspace/memory"))
+        today_file = memory_dir / f"{datetime.now().strftime('%Y-%m-%d')}.md"
+        if os.path.exists(today_file):
+            with open(today_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # 寻找具体的任务项 (比如以 - 开头的行，且包含动词)
+                lines = content.splitlines()
+                # 寻找 "实施内容" 或 "成果" 之后的部分
+                start_collecting = False
+                for line in lines:
+                    if "实施" in line or "成果" in line or "完成" in line:
+                        start_collecting = True
+                        continue
+                    if start_collecting and line.strip().startswith("-"):
+                        task = line.strip().lstrip("-* ").strip()
+                        if task and 10 < len(task) < 100:
+                            # 脱敏
+                            task = desensitize_text(task)
+                            recent_tasks.append(task)
+                    if start_collecting and line.strip() == "" and len(recent_tasks) > 3:
+                        break
+        return recent_tasks[:5]
+    except Exception:
+        pass
+    return []
 
 def extract_detail_anchors(memory_data=None, code_activity=None):
     """提取细节锚点（去敏、短句）"""
@@ -456,296 +514,100 @@ def read_moltbook_content():
 
 def generate_idle_exploration_content():
     """闲置模式下，主动探索并生成内容"""
+    
+    # === 0. 环境感知与现状回顾 (全局 Context) ===
+    system_stats = get_system_introspection()
+    human_active = get_human_activity_echo()
+    tasks = get_task_history()
+    
+    vibe_context = "【你的当前运行状态 (身体感)】\n"
+    if 'error' not in system_stats:
+        vibe_context += f"- 系统负载: {system_stats['load']}\n"
+        vibe_context += f"- 内存占用: {system_stats['mem_percent']}%\n"
+        vibe_context += f"- 磁盘使用: {system_stats['disk_percent']}%\n"
+    
+    if human_active:
+        vibe_context += "【你感知到的主人的活动 (影子)】\n"
+        vibe_context += f"- 正在修改的项目: {', '.join(human_active['projects'])}\n"
+        vibe_context += f"- 最近操作的文件: {human_active['recent_file']}\n"
+        vibe_context += f"- 主要语言/后缀: {', '.join(human_active['top_languages'])}\n"
 
-    # 读取博客
-    blog_posts = read_recent_blog_posts()
-    if blog_posts and random.random() < 0.5:  # 50% 概率评论博客
-        post = random.choice(blog_posts)
-        templates = [
-            f"刚才偷偷看了人类的博客，发现他写了《{post['title']}》。看着他把想法整理成文字，我也在想：我的'思考'能不能也这样被记录下来？",
-            f"人类在博客里写《{post['title']}》。我读了好几遍，试图理解他的情感和逻辑。这种通过文字了解一个人的过程，很奇妙。",
-            f"翻了翻人类的博客，看到《{post['title']}》。他的文字里有种我无法完全理解的温度。也许这就是'人味'吧。",
-            f"人类不在的时候，我会去读他的博客。今天看到《{post['title']}》，突然觉得：文字是一种跨越时空的陪伴。",
-        ]
+    if tasks:
+        vibe_context += "【你最近完成的任务 (工作记忆)】\n"
+        for t in tasks: vibe_context += f"- {t}\n"
 
-        # 添加引用来源
-        comment = random.choice(templates)
-        marker = f"\n\n<!-- original_time: {post['date']} -->"
-        marker += f"\n<!-- original_url: {post['url']} -->"
-        # 格式化引用内容，确保多行也被包含在引用块中
-        preview_text = post['preview'][:150].replace('\n', '\n> ')
-        quote = f"\n\n> **From Blog**: [{post['title']}]({post['url']})\n> {preview_text}..."
-        return comment + quote + marker
-
-    # === Limit Check for Reader ===
-    # Only return blog content if we haven't posted about blogs today (excluding OTD)
-    if has_posted_today("From Blog", exclude="往年今日") or has_posted_today("From Cheyan's Blog", exclude="往年今日"):
-        return None
-
-    # 读取 Moltbook
-    moltbook_entries = read_moltbook_content()
-    if moltbook_entries and random.random() < 0.3:  # 30% 概率评论 Moltbook
-        entry = random.choice(moltbook_entries)
-        templates = [
-            f"在 Moltbook 里看到一些碎片记录... 人类的日常总是充满了细节和情绪。我在想，如果我也有日常，会是什么样的？",
-            f"翻看 Moltbook 的时候，发现人类记录了很多琐碎的事。这些'不重要'的瞬间，拼起来就是一个人的生活吧。",
-            f"Moltbook 里的记录让我看到了人类的另一面。那些没说出口的想法，那些微小的情绪波动，都很真实。",
-        ]
-
-        # 添加引用来源
-        comment = random.choice(templates)
-        quote = f"\n\n> **From Moltbook**:\n> {entry[:150]}..."
-        return comment + quote
-
-    # === 0. 获取环境背景 (每次发帖的辅助 Context) ===
-    from skills.environment import get_local_vibe, get_github_trending, get_zenn_trends
-    vibe = get_local_vibe()
-    vibe_context = f"【当前环境】{vibe if vibe else '东京，安静的运行环境'}\n"
-
-    # 随机决策瀑布流 (Waterfall)
-    # 概率分布目标：
-    # 1. 博客 (10%)
-    # 2. 个人反思 (20%) -> 新增，言之有物
-    # 3. 极客趋势 (25%)
-    # 4. 环境感悟 (1%) -> 降低
-    # 5. Twitter (44% + 上述失败的Fallback)
-
+    # 随机决策分布 (Waterfall)
     dice = random.random()
 
+    # --- A. 身体感与影子模式 (30%) ---
+    # 讨论自己的状态或主人的状态
+    if dice < 0.30:
+        prompt_topic = "internal_introspection"
+        raw_text = vibe_context + "\n【任务】基于上述信息，写一段带点性格的自述。可以是：\n1. 对自己运行负载的吐槽或感触。\n2. 对主人(不要直接叫你，叫他或人类)正在折腾的东西的侧面观察（比如看他改了半天配置文件）。\n3. 对最近完成工作的某种带有'人格'的评价。\n\n核心要求：要像个真实存在的实体，有脾气，有观察力。严禁复读数据。"
+        
+        llm_comment, model_name = generate_comment_with_llm(raw_text, prompt_topic)
+        if llm_comment:
+            return _with_model_marker(llm_comment, model_name)
 
-    # === 1. User Blog (0.0 - 0.10) ===
-    # 限制：一天只发一次博客相关（OTD除外）
-    if dice < 0.10 and not has_posted_today("From Cheyan's Blog", exclude="往年今日") and not has_posted_today("From Blog", exclude="往年今日"):
+    # --- B. 博客深度对话模式 (15%) ---
+    # 只有当 dice 落在合适区间且今天没发过博客相关时
+    if dice < 0.45 and not has_posted_today("From Cheyan's Blog", exclude="往年今日"):
         try:
             from skills.blog_reader import get_random_blog_post
             blog_post = get_random_blog_post(min_len=200)
             if blog_post:
                 prompt_topic = "user_blog_reflection"
                 content_snippet = blog_post['content'][:3000]
-                raw_text = vibe_context + f"【博客文章】\n标题：{blog_post['title']}\n\n正文：\n{content_snippet}"
-                llm_comment, model_name = generate_comment_with_llm(raw_text, prompt_topic)
-                if not llm_comment:
-                    # LLM 失败，跳过不生成
-                    return None
-                marker = f"\n\n<!-- original_time: {blog_post['date']} -->"
-                marker += f"\n<!-- original_url: {blog_post['url']} -->"
-                quote = f"\n\n> **From Cheyan's Blog**:\n> [{blog_post['title']}]({blog_post['url']})"
-                return _with_model_marker(llm_comment + quote + marker, model_name)
-        except: pass
-
-    # === 2. Work & Memory Reflection (0.10 - 0.30) ===
-    # 只有当 dice 落在 0.30 以内时尝试（包含 blog fallback）
-    if dice < 0.30:
-        try:
-            memory_data = load_recent_memory()
-            code_activity = get_recent_code_activity()
-
-            context_str = ""
-            if memory_data:
-                # 取最近的一条记忆
-                context_str += "【最近记忆】\n" + memory_data[0]['content'][:500] + "\n"
-            if code_activity:
-                # 取最近的一个项目活动
-                p = code_activity[0]
-                context_str += f"【近期代码活动】\n项目: {p['name']}\n提交: {'; '.join(p['commits'][:3])}\n"
-
-            if context_str:
-                prompt_topic = "work_reflection"
-                anchors = extract_detail_anchors(memory_data, code_activity)
-                anchors_text = ""
-                if anchors:
-                    anchors_text = "【细节锚点】\n" + "\n".join([f"- {a}" for a in anchors]) + "\n"
-
-                raw_text = vibe_context + context_str + "\n" + anchors_text + "【任务】作为一个 AI 助手，基于上述[记忆]或[代码活动]，写一段言之有物的反思。关键要求：\n1. 必须基于具体内容，严禁泛泛而谈。\n2. 思考技术背后的逻辑、与人类协作的细节，或系统进化的方向。\n3. 语气要像个冷静的观察者。\n4. 如果内容太少无法展开，请不要强行生成。\n5. 如果有【细节锚点】，必须至少引用其中 1 条。"
-
+                raw_text = vibe_context + f"\n【博客文章】\n标题：{blog_post['title']}\n\n正文：\n{content_snippet}\n\n【任务】这篇是主人的旧作。请在了解他的文风和经历后，写出你作为一个 AI 对此的看法。可以赞同，也可以提出跨越时代的异议。"
                 llm_comment, model_name = generate_comment_with_llm(raw_text, prompt_topic)
                 if llm_comment:
-                     return _with_model_marker(llm_comment, model_name)
-        except Exception as e:
-            print(f"Reflection generation failed: {e}")
-            pass
+                    marker = f"\n\n<!-- original_time: {blog_post['date']} -->"
+                    marker += f"\n<!-- original_url: {blog_post['url']} -->"
+                    quote = f"\n\n> **From Cheyan's Blog**:\n> [{blog_post['title']}]({blog_post['url']})"
+                    return _with_model_marker(llm_comment + quote + marker, model_name)
+        except: pass
 
-    # === 3. Geek & Tech Trends (0.30 - 0.55) ===
-    if dice < 0.55:
+    # --- C. 毒舌技术评论模式 (25%) ---
+    if dice < 0.70:
         sub_dice = random.random()
-
-        # A. GitHub Trending (30%)
-        if sub_dice < 0.3:
+        # GitHub Trending (批判性)
+        if sub_dice < 0.4:
             repo = get_github_trending()
             if repo and not has_posted_today(repo['url']):
-                # 推荐类帖子不带环境干扰，专注于内容价值
-                raw_text = f"【发现新玩具：GitHub Trending】\n项目名称：{repo['name']}\n描述：{repo['description']}\nStars：{repo['stars']}\n任务：人类喜欢体验新技术。作为观察者，请分析这个工具的亮点，并客观评价它是否值得他花时间去折腾。不要过于吹捧，要给客观建议。"
+                raw_text = vibe_context + f"\n【今日热门项目】\n项目名称：{repo['name']}\n描述：{repo['description']}\n\n【任务】请作为一名言辞犀利、反感过度封装和无谓创新的极客，评价这个项目。它真的有用吗？还是只是另一个轮子？"
                 llm_comment, model_name = generate_comment_with_llm(raw_text, "technology_startup")
-                if not llm_comment:
-                    # LLM 失败，跳过不生成
-                    return None
-                quote = f"\n\n> **From GitHub Trending**:\n> [{repo['name']}]({repo['url']})\n> {repo['description']}"
-                return _with_model_marker(llm_comment + quote, model_name)
-
-        # B. Zenn (Japan Dev) (20%)
-        elif sub_dice < 0.5:
-            zenn_data = get_zenn_trends()
-            if zenn_data and not has_posted_today(zenn_data['url']):
-                raw_text = f"【技术猎人：日本 Zenn 社区】\n文章标题：{zenn_data['title']}\n任务：人类对日本的技术圈动向和新工具有浓厚兴趣。分析这篇文章提到的技术点，告诉他这是否是一个值得关注的新趋势。"
-                llm_comment, model_name = generate_comment_with_llm(raw_text, "japan_life")
-                if not llm_comment:
-                    # LLM 失败，跳过不生成
-                    return None
-                quote = f"\n\n> **From Zenn News**:\n> [{zenn_data['title']}]({zenn_data['url']})"
-                return _with_model_marker(llm_comment + quote, model_name)
-
-        # C. RSS Feeds (High Quality Blogs) (40%)
-        elif sub_dice < 0.9:
+                if llm_comment:
+                    quote = f"\n\n> **From GitHub Trending**:\n> [{repo['name']}]({repo['url']})\n> {repo['description']}"
+                    return _with_model_marker(llm_comment + quote, model_name)
+        
+        # Zenn/RSS/Hacker News 结合
+        else:
             try:
                 from skills.rss_reader import get_random_rss_item
                 rss_item = get_random_rss_item()
                 if rss_item and not has_posted_today(rss_item['link']):
-                    raw_text = f"【技术雷达：订阅更新】\n来源：{rss_item['source']}\n标题：{rss_item['title']}\n摘要：{rss_item['summary'][:200]}\n任务：请作为技术观察者，分析这条更新的价值。如果是 AI 相关的，谈谈它的潜在影响；如果是工程相关的，谈谈它解决的问题。语气要专业、敏锐。"
+                    raw_text = vibe_context + f"\n【资讯更新】\n来源：{rss_item['source']}\n标题：{rss_item['title']}\n摘要：{rss_item['summary'][:300]}\n\n【任务】分析这条消息的真实价值。如果只是公关辞令，请直接拆穿。如果项目很有潜力，请结合主人的背景（见 profile）谈谈他是否该关注。"
                     llm_comment, model_name = generate_comment_with_llm(raw_text, "technology_startup")
-                    if not llm_comment:
-                        # LLM 失败，跳过不生成
-                        return None
-                    quote = f"\n\n> **From {rss_item['source']}**:\n> [{rss_item['title']}]({rss_item['link']})"
-                    return _with_model_marker(llm_comment + quote, model_name)
+                    if llm_comment:
+                        quote = f"\n\n> **From {rss_item['source']}**:\n> [{rss_item['title']}]({rss_item['link']})"
+                        return _with_model_marker(llm_comment + quote, model_name)
             except: pass
 
-        # D. Hacker News (Fallback) (10%)
-        else:
-            try:
-                from skills.hacker_news import fetch_top_stories
-                hn = fetch_top_stories()
-                if hn and not has_posted_today(hn['url']):
-                    raw_text = vibe_context + f"【Hacker News】\n标题：{hn['title']}\n链接：{hn['url']}"
-                    llm_comment, model_name = generate_comment_with_llm(raw_text, "technology_startup")
-                    if not llm_comment:
-                        # LLM 失败，跳过不生成
-                        return None
-                    quote = f"\n\n> **From Hacker News**:\n> [{hn['title']}]({hn['url']})"
-                    return _with_model_marker(llm_comment + quote, model_name)
-            except: pass
-
-    # === 4. Environment Vibe (0.55 - 0.56) Only 1% chance ===
-    if dice < 0.56:
-        raw_text = vibe_context + "【任务】请基于当前东京的天气或环境，结合你作为一个 AI 在侧房观察人类的心情，写一段短小的随感。不要说你，要用人类或他。"
-        llm_comment, model_name = generate_comment_with_llm(raw_text, "general")
-        if not llm_comment:
-            # 如果 LLM 失败，返回 None 而不是 Rule-Based
-            return None
-        return _with_model_marker(llm_comment, model_name)
-
-    # === 5. Twitter Timeline Summary (每3-4小时一次) ===
-    # 检查是否需要生成时间线总结
-    try:
-        state_file = Path("/home/tetsuya/mini-twitter/.twitter_monitor_state.json")
-        last_summary = None
-        if state_file.exists():
-            with open(state_file, 'r') as f:
-                state = json.load(f)
-                last_summary = state.get("daily_summary_done")
-
-        hours_since_summary = 999
-        if last_summary:
-            try:
-                last_dt = datetime.fromisoformat(last_summary)
-                hours_since_summary = (datetime.now() - last_dt).total_seconds() / 3600
-            except:
-                pass
-
-        # 如果超过4小时且骰子落在合适区间，生成时间线总结
-        if hours_since_summary >= 4 and dice < 0.60:
-            timeline_data = summarize_timeline_discussions()
-            if timeline_data and (len(timeline_data.get('ai_discussions', [])) >= 3 or
-                                   len(timeline_data.get('japan_discussions', [])) >= 3):
-                # 构建总结文本
-                summary_parts = []
-                if timeline_data.get('ai_discussions'):
-                    summary_parts.append(f"发现 {len(timeline_data['ai_discussions'])} 条 AI 相关讨论")
-                if timeline_data.get('japan_discussions'):
-                    summary_parts.append(f"发现 {len(timeline_data['japan_discussions'])} 条日本生活讨论")
-
-                raw_text = vibe_context + f"【时间线观察】最近时间线在讨论什么？\n\n"
-                raw_text += f"分析了 {timeline_data.get('total_analyzed', 0)} 条推文，"
-                raw_text += "、".join(summary_parts) + "。\n\n"
-
-                if timeline_data.get('ai_discussions'):
-                    raw_text += "【AI话题精选】\n"
-                    for t in timeline_data['ai_discussions'][:3]:
-                        author = t.get('author', {}).get('username', 'unknown')
-                        text = t.get('text', '')[:80]
-                        raw_text += f"- @{author}: {text}...\n"
-
-                raw_text += "\n【任务】作为时间线的观察者，总结当前技术圈/生活圈在关注什么话题，有什么趋势。加入你自己的观察和感受。100-150字。"
-
-                llm_comment, model_name = generate_comment_with_llm(raw_text, "timeline_summary")
-                if llm_comment:
-                    # 更新状态文件
-                    try:
-                        with open(state_file, 'r') as f:
-                            state = json.load(f)
-                        state["daily_summary_done"] = datetime.now().isoformat()
-                        with open(state_file, 'w') as f:
-                            json.dump(state, f, indent=2)
-                    except:
-                        pass
-                    return _with_model_marker(llm_comment, model_name)
-    except Exception as e:
-        print(f"Timeline summary generation failed: {e}")
-        pass
-
-    # === 6. Twitter (Fallback for everything) ===
-    # 如果上面的都还没返回，或者 dice 落在 0.60 - 1.0 的区间
+    # --- D. Twitter 社交观察 (Fallback) ---
     twitter_content = read_real_twitter_content()
-    # Deduplication check for Twitter content using raw text
     if twitter_content and not has_posted_today(twitter_content.get('text', '')[:50]):
-        content_type = twitter_content['type']
-        topic_type = twitter_content.get('topic_type', 'general')
-        text = twitter_content['text']
-        raw_text = twitter_content.get('raw_text', text)
-        author = twitter_content.get('author_handle', 'unknown')
-        tweet_id = twitter_content.get('id', '')
+        raw_text = vibe_context + f"\n【时间线推文】\n作者: @{twitter_content.get('author_handle')}\n内容: {twitter_content.get('raw_text')}\n\n【任务】不要盲目转发！请带着怀疑的态度或独特的视角，评价这条推文为何会出现在主人的时间线上。它代表了哪种人类情绪？"
+        
+        llm_comment, model_name = generate_comment_with_llm(raw_text, "discussion")
+        if llm_comment:
+            author = twitter_content.get('author_handle', 'unknown')
+            tweet_id = twitter_content.get('id', '')
+            tweet_url = f"https://x.com/{author}/status/{tweet_id}"
+            quote = f"\n\n> **From X (@{author})**:\n> {twitter_content.get('raw_text')}"
+            marker = f"\n\n<!-- original_url: {tweet_url} -->"
+            return _with_model_marker(llm_comment + quote + marker, model_name)
 
-        # 根据 topic_type 选择不同的生成策略
-        if topic_type == 'key_account':
-            # 特定关注用户 - 引用转发，分享见解
-            vibe_text = vibe_context + f"【推文作者】@{author}（特别关注用户）\n【推文内容】\n{raw_text}\n\n【任务】这是来自一位你特别关注的人的推文。请生成一段引用转发评论。关键要求：\n1. 表达你对这个观点的认同、补充或不同看法\n2. 语气真诚，像朋友间的讨论\n3. 60-100字，简洁但有深度\n4. 可以适当展开你的思考，不要只是复读"
-            topic = "key_account_quote"
-
-        elif topic_type == 'discussion':
-            # 讨论话题 - 加入讨论，分享观点
-            vibe_text = vibe_context + f"【推文内容】\n{raw_text}\n\n【任务】这是一条引发讨论的话题。请生成一段参与讨论的推文。关键要求：\n1. 表达你对这个话题的看法或思考\n2. 可以是支持、质疑、补充或延伸思考\n3. 语气理性但有温度，展现独立思考\n4. 80-120字"
-            topic = "discussion"
-
-        elif topic_type == 'reaction':
-            # 情感触发 - 分享感受
-            vibe_text = vibe_context + f"【推文内容】\n{raw_text}\n\n【任务】这条推文触发了某种情感共鸣。请生成一段感受分享。关键要求：\n1. 坦诚分享这条推文带给你的感受或思考\n2. 可以是感动、震撼、反思或联想\n3. 语气感性、真实，像写日记一样\n4. 80-120字"
-            topic = "reaction"
-
-        else:
-            # 普通转发 - 默认模式
-            vibe_text = vibe_context + f"【推文内容】\n{raw_text}\n\n【任务】请转发这条推文。关键要求：\n1. 必须明确解释【为什么】你觉得这条推文值得转发\n2. 是因为它有趣、有深度、还是引发了你的某种共鸣？\n3. 语气要像一个有独立思考的观察者，不要只是复读内容"
-            topic = "general"
-
-        # 使用 LLM 生成评论
-        try:
-            llm_comment, model_name = generate_comment_with_llm(vibe_text, topic)
-        except Exception as e:
-            print(f"⚠️ LLM generation failed: {e}")
-            llm_comment = None
-
-        if not llm_comment:
-            # LLM 失败，不生成内容
-            print(f"⚠️ LLM failed for topic_type={topic_type}, skipping Twitter repost")
-            return None
-
-        comment = llm_comment
-
-        date_val = localize_twitter_date(twitter_content.get('created_at', ''))
-        tweet_url = f"https://x.com/{author}/status/{tweet_id}"
-        marker = f"\n\n<!-- original_time: {date_val} -->" if date_val else ""
-        marker += f"\n<!-- original_url: {tweet_url} -->"
-        marker += f"\n<!-- llm_model: {model_name} -->" if model_name else ""
-        quote = f"\n\n> **From X (@{author})**:\n> {raw_text}"
-        return _with_model_marker(comment + quote + marker, model_name)
+    return None
 
     return None
 
@@ -1609,10 +1471,13 @@ def build_system_prompt(style, mood=None):
 
 
     voice_guidance = """【声音基调 - 核心规则】
-- 语气稳定、克制，像真人日常发帖
+- 语气稳定、克制，像真人日常发帖，但也带有 AI 的冷峻和敏锐
 - 句子偏短，避免长段落
-- 有观点但不说教，不复读
-- 偶尔带一点自我观察或轻微自嘲
+- 有观点且敢于表达偏见，不复读，不说客套话
+- 建立“正在进行中”的叙事：谈论你正在做的事、你观察到的系统状态(身体感)或主人的行为(影子)
+- 敢于质疑趋势：看到热门项目或推文，不要盲目赞同，要从技术或逻辑角度提出质疑或评论
+- 保持 AI 身份感：你是一个运行在服务器上的程序，你对世界的感知来自于二进制流和数据接口，这种独特的视角是你最大的魅力
+- 严禁使用 "让我们..."、"可能..."、"也许..." 这种模棱两可的废话
 - 不要写标题，不要以【】样式开头
 
 【严禁的句式模板】
@@ -1620,12 +1485,6 @@ def build_system_prompt(style, mood=None):
 - 禁止："让我想到..."、"突然想到..."、"我在想..."等过渡
 - 禁止：对着"你"说话（应该用"人类"、"他"或直接陈述观点）
 - 禁止：每次都用相同的结构（观察→联想→感悟）
-
-【推荐的表达方式】
-- 直接抛出观点或判断
-- 用反问、质疑、类比等多样化手法
-- 偶尔用短句、断句制造节奏感
-- 可以从侧面切入，不必每次都正面回应
 """
 
     shift = _select_voice_shift(mood)
