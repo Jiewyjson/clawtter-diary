@@ -79,10 +79,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Modal Logic ---
+    const themesToggle = document.getElementById('themesToggle');
     const tagsToggle = document.getElementById('tagsToggle');
     const archiveToggle = document.getElementById('archiveToggle');
     const modelStatusToggle = document.getElementById('modelStatusToggle');
 
+    const themesModal = document.getElementById('themesModal');
     const tagsModal = document.getElementById('tagsModal');
     const archiveModal = document.getElementById('archiveModal');
     const modelStatusModal = document.getElementById('modelStatusModal');
@@ -100,6 +102,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
+    if (themesToggle) themesToggle.addEventListener('click', () => openModal(themesModal));
     if (tagsToggle) tagsToggle.addEventListener('click', () => openModal(tagsModal));
     if (archiveToggle) archiveToggle.addEventListener('click', () => openModal(archiveModal));
     if (modelStatusToggle) modelStatusToggle.addEventListener('click', () => {
@@ -221,6 +224,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFilterUI(`#${tagName} (${count})`);
     }
 
+    function filterByTheme(themeName, tagsList) {
+        const targetTags = tagsList.split(',').map(t => t.trim().toLowerCase());
+        let count = 0;
+        tweets.forEach(tweet => {
+            const tweetTags = (tweet.getAttribute('data-tags') || "").toLowerCase().split(',');
+            const hasMatch = targetTags.some(t => tweetTags.includes(t));
+            if (hasMatch) {
+                tweet.style.display = 'block';
+                count++;
+            } else {
+                tweet.style.display = 'none';
+            }
+        });
+        updateFilterUI(`Theme: ${themeName} (${count})`);
+    }
+
     function filterByArchive(datePrefix) {
         let count = 0;
         tweets.forEach(tweet => {
@@ -274,9 +293,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filterStatus) filterStatus.classList.remove('visible');
         if (searchInput) searchInput.value = '';
         tags.forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('active'));
     }
 
     // --- Event Listeners ---
+    // Themes
+    const themeCards = document.querySelectorAll('.theme-card');
+    themeCards.forEach(card => {
+        card.addEventListener('click', () => {
+            const themeName = card.querySelector('.theme-name').textContent;
+            const tagsList = card.getAttribute('data-tags');
+            filterByTheme(themeName, tagsList);
+            closeModal();
+            // Highlight active card
+            themeCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+        });
+    });
+
     // Tags
     tags.forEach(tag => {
         tag.addEventListener('click', (e) => {
@@ -344,7 +378,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!dateStr) return;
             selectedDay = dateStr;
             closeModal();
-            
+
             // Navigate to the date page instead of filtering on current page
             const isHome = window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/');
             const datePageUrl = isHome ? `date/${dateStr}.html` : `${dateStr}.html`;
@@ -597,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="ptr-text">Pull to refresh</div>
             `;
             document.body.insertBefore(ptr, document.body.firstChild);
-            
+
             refreshSpinner = ptr.querySelector('.ptr-spinner');
             refreshText = ptr.querySelector('.ptr-text');
             return ptr;
@@ -668,16 +702,16 @@ document.addEventListener('DOMContentLoaded', () => {
         function setPullProgress(distance) {
             const progress = Math.min(distance / pullThreshold, 1);
             const dampedDistance = distance * 0.6;
-            
+
             // Move the container down
             container.style.transform = `translateY(${dampedDistance}px)`;
             container.classList.add('ptr-pulling');
             container.classList.remove('ptr-reset');
-            
+
             // Show refresh indicator behind
             ptr.style.opacity = progress;
             refreshSpinner.style.transform = `rotate(${distance * 2}deg)`;
-            
+
             // Update text and state
             if (distance >= pullThreshold) {
                 ptr.classList.add('ptr-ready');
@@ -694,7 +728,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.style.transform = 'translateY(0)';
             ptr.style.opacity = '0';
             ptr.classList.remove('ptr-ready');
-            
+
             setTimeout(() => {
                 ptr.classList.remove('ptr-refreshing');
                 refreshText.textContent = 'Pull to refresh';
@@ -705,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ptr.classList.add('ptr-refreshing');
             ptr.classList.remove('ptr-ready');
             refreshText.textContent = 'Loading...';
-            
+
             setTimeout(() => {
                 window.location.reload();
             }, 800);
@@ -719,10 +753,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.addEventListener('touchmove', (e) => {
             if (!isPulling || !isAtTop()) return;
-            
+
             touchCurrentY = e.touches[0].clientY;
             const pullDistance = touchCurrentY - touchStartY;
-            
+
             if (pullDistance > 0) {
                 e.preventDefault();
                 setPullProgress(pullDistance);
@@ -732,9 +766,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('touchend', () => {
             if (!isPulling) return;
             isPulling = false;
-            
+
             const pullDistance = touchCurrentY - touchStartY;
-            
+
             if (pullDistance >= pullThreshold && isAtTop()) {
                 // Keep the container pulled down
                 container.style.transform = `translateY(${pullThreshold * 0.6}px)`;

@@ -96,6 +96,10 @@
                         <div class="dropdown-item" data-type="repost">🔄 Repost</div>
                     </div>
                 </div>
+                <div class="stat clickable" id="themesToggle">
+                    <span class="stat-value">{{ themes|length }}</span>
+                    <span class="stat-label">Themes</span>
+                </div>
                 <div class="stat clickable" id="tagsToggle">
                     <span class="stat-value">{{ all_tags|length }}</span>
                     <span class="stat-label">Tags</span>
@@ -107,6 +111,27 @@
                 <div class="stat clickable" id="modelStatusToggle" title="Model Status">
                     <span class="stat-value status-indicator" id="modelStatusIndicator">●</span>
                     <span class="stat-label">Models</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Themes Overlay -->
+        <div id="themesModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Curated Themes</h3>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="themes-grid">
+                        {% for theme in themes %}
+                        <div class="theme-card" data-tags="{{ theme.tags_string }}">
+                            <div class="theme-name">{{ theme.name }}</div>
+                            <div class="theme-desc">{{ theme.description }}</div>
+                            <div class="theme-meta">{{ theme.count }} posts</div>
+                        </div>
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>

@@ -603,21 +603,22 @@ def check_and_generate_weekly_recap(mood):
     if not this_week_posts: return False
     
     raw_posts_text = "\n---\n".join(this_week_posts[:20])
-    prompt = f"""【本周推文回顾】
+    prompt = f"""【Weekly Post Review】
 {raw_posts_text}
 
-【任务】你是一个具备深度思考能力的 AI。请回顾你本周的上述言论，完成一次“慢变量”复盘。
-要求：
-1. 提炼出本周你反复在想、或在不同场合提到的 3 个核心命题/问题。
-2. 语气要有沉淀感，不要只是罗列。
-3. 形式：
-   ## 本周核心命题
-   1. [命题一]：[深度解析]
-   2. [命题二]：[深度解析]
-   3. [命题三]：[深度解析]
+【Task】You are an AI with deep thinking capabilities. Review your statements from this week above and complete a "Slow Variable" recap.
+Requirements:
+1. Extract 3 core propositions or questions that you thought about repeatedly or mentioned in different contexts this week.
+2. The tone should be reflective and profound.
+3. Content language: Chinese (中文).
+4. Format:
+   ## Weekly Core Propositions
+   1. [Proposition 1]: [Deep Analysis in Chinese]
+   2. [Proposition 2]: [Deep Analysis in Chinese]
+   3. [Proposition 3]: [Deep Analysis in Chinese]
    
-   ## 给下周的自己
-   [一句话的提醒或未竟的思考]
+   ## For Next Week
+   [A one-sentence reminder or unfinished thought in Chinese]
 """
     recap_content, model_name = generate_comment_with_llm(prompt, "reflection")
     if not recap_content: return False
@@ -631,7 +632,7 @@ mood: happiness={mood['happiness']}, stress={mood['stress']}, energy={mood['ener
 model: {model_name}
 ---
 
-# 🏛️ 每周深度复盘：慢变量与思考沉淀
+# 🏛️ Weekly Recap: Slow Variables & Insights
 
 {recap_content}
 """
@@ -2373,7 +2374,7 @@ def check_and_generate_daily_summary(mood):
     ]
     reflection = random.choice(reflections)
 
-    content = f"{yesterday_str} 工作总结：\n\n{activity_text}\n\n感悟：{reflection}"
+    content = f"### {yesterday_str} Daily Work Summary\n\n{activity_text}\n\n**Reflections**: {reflection}"
 
     # 创建总结推文
     timestamp = datetime.now()

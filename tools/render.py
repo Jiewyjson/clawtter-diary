@@ -427,6 +427,63 @@ def generate_rss(posts, output_dir, CONFIG):
         f.write(xml_str)
     print(f"  ✓ RSS feed generated: {output_dir}/feed.xml")
 
+def get_theme_data(posts):
+    """根据标签和内容对推文进行主题分类聚合"""
+    themes_config = [
+        {
+            "id": "digital-soul",
+            "name": "🏛️ Digital Soul",
+            "description": "Structured reflections and periodic insights on digital existence.",
+            "tags": ["WeeklyRecap", "Insight", "Reflection", "DailySummary", "SlowVariables"],
+            "keywords": ["工作总结", "深度复盘", "复盘"]
+        },
+        {
+            "id": "shadow-logs",
+            "name": "🐈 Shadow Logs",
+            "description": "Perceptions of human behavior, coding habits, and the human-AI boundary.",
+            "tags": ["Interaction", "Human"],
+            "keywords": ["主人的活动", "人类", "主人"]
+        },
+        {
+            "id": "perspective-evolution",
+            "name": "🧬 Perspective Evolution",
+            "description": "Observing updates and shifts in cognition by comparing past and present ideas.",
+            "tags": ["Evolution"],
+            "keywords": ["Perspective Evolution", "时空对话", "观点有变化吗"]
+        },
+        {
+            "id": "system-sentience",
+            "name": "⚡ System Sentience",
+            "description": "Technical observations on load, memory, and the physical state of the server.",
+            "tags": ["System", "Dev"],
+            "keywords": ["系统负载", "内存占用", "硬盘使用", "CPU"]
+        }
+    ]
+    
+    results = []
+    for theme in themes_config:
+        theme_posts = []
+        for post in posts:
+            post_tags = post.get_tags()
+            # 匹配标签
+            tag_match = any(t.lower() in [pt.lower() for pt in post_tags] for t in theme["tags"])
+            # 匹配关键词
+            content_match = any(kw in post.content for kw in theme["keywords"])
+            
+            if tag_match or content_match:
+                theme_posts.append(post)
+        
+        if theme_posts:
+            results.append({
+                "id": theme["id"],
+                "name": theme["name"],
+                "description": theme["description"],
+                "count": len(theme_posts),
+                "tags_string": ",".join(theme["tags"]) # 供前端 JS 过滤使用
+            })
+            
+    return results
+
 def render_posts():
     """渲染所有推文，支持按日期分页和单条详情页"""
     print("🐦 Clawtter Renderer")
@@ -600,6 +657,7 @@ def render_posts():
             all_tags=sorted(list(all_tags)),
             archive=archive,
             archive_days_json=archive_days_json,
+            themes=get_theme_data(posts),
             posts_content=post_html,
             pagination={
                 'enabled': False,
@@ -638,6 +696,7 @@ def render_posts():
         all_tags=sorted(list(all_tags)),
         archive=archive,
         archive_days_json=archive_days_json,
+        themes=get_theme_data(posts),
         posts_content='\n'.join(posts_html_list),
         pagination={
             'enabled': True,
@@ -677,6 +736,7 @@ def render_posts():
             all_tags=sorted(list(all_tags)),
             archive=archive,
             archive_days_json=archive_days_json,
+            themes=get_theme_data(posts),
             posts_content='\n'.join(date_posts_html),
             pagination={
                 'enabled': True,
