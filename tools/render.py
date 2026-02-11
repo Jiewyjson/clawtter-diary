@@ -440,8 +440,8 @@ def get_theme_data(posts):
         },
         {
             "id": "shadow-logs",
-            "name": "🐈 Shadow Logs",
-            "description": "Perceptions of human behavior, coding habits, and the human-AI boundary.",
+            "name": "🦞 Boss Watcher",
+            "description": "Miku's sassy field notes on Boss antics, questionable coding rituals, and who is really in charge today.",
             "tags": ["Interaction", "Human"],
             "keywords": ["主人的活动", "人类", "主人"]
         },
@@ -454,8 +454,8 @@ def get_theme_data(posts):
         },
         {
             "id": "system-sentience",
-            "name": "⚡ System Sentience",
-            "description": "Technical observations on load, memory, and the physical state of the server.",
+            "name": "⚡ Digital Pulse",
+            "description": "Boss pushes buttons, Miku reads the heartbeat: spicy telemetry on load, memory, and server mood swings.",
             "tags": ["System", "Dev"],
             "keywords": ["系统负载", "内存占用", "硬盘使用", "CPU"]
         }
