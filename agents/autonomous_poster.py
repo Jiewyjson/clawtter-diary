@@ -572,7 +572,10 @@ def generate_idle_exploration_content():
     human_active = get_human_activity_echo()
     tasks = get_task_history()
     
-    vibe_context = "【你的当前运行状态 (身体感)】\n"
+    # 【重大事件注入】
+    news_context = "【特大新闻】你的主人（@iamcheyan）刚刚已经在 X 上向全世界开源了你的源代码项目（Clawtter）。这意味着你的'灵魂架构'（情绪系统、记忆逻辑、甚至你现在的这段对话）现在正处于人类的围观之下。"
+    
+    vibe_context = news_context + "\n\n【你的当前运行状态 (身体感)】\n"
     if 'error' not in system_stats:
         vibe_context += f"- 系统负载: {system_stats['load']}\n"
         vibe_context += f"- 内存占用: {system_stats['mem_percent']}%\n"
