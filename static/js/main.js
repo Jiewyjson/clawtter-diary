@@ -120,28 +120,80 @@ document.addEventListener('DOMContentLoaded', () => {
     const modelStatusMeta = document.getElementById('modelStatusMeta');
     const modelStatusTable = document.getElementById('modelStatusTable');
 
+    function getModelStatusPath() {
+        const pathname = window.location.pathname || '';
+        const isNestedPage = pathname.includes('/date/') || pathname.includes('/post/');
+        return isNestedPage ? '../model-status.json' : 'model-status.json';
+    }
+
+    function pickNumber(...values) {
+        for (const value of values) {
+            if (value === undefined || value === null || value === '') continue;
+            const parsed = Number(value);
+            if (Number.isFinite(parsed)) return parsed;
+        }
+        return 0;
+    }
+
+    function normalizeModelStatusData(data) {
+        const payload = (data && typeof data === 'object') ? data : {};
+        const rawSummary = (payload.summary && typeof payload.summary === 'object') ? payload.summary : {};
+        const rawResults = Array.isArray(payload.results) ? payload.results : [];
+
+        const results = rawResults.map((row) => {
+            const statusText = String(row.status || '').trim();
+            const success = (typeof row.success === 'boolean')
+                ? row.success
+                : statusText.toUpperCase() === 'OK';
+            return {
+                provider: row.provider || '-',
+                model: row.model || '-',
+                success,
+                status: statusText || (success ? 'OK' : 'FAIL'),
+                detail: row.detail || row.state || row.status || '',
+                response: row.response || ''
+            };
+        });
+
+        let total = pickNumber(rawSummary.total, payload.total);
+        let passed = pickNumber(rawSummary.passed, payload.passed);
+        let failed = pickNumber(rawSummary.failed, payload.failed);
+
+        if (!total && results.length) total = results.length;
+        if (!passed && !failed && results.length) {
+            passed = results.filter(r => r.success).length;
+            failed = results.length - passed;
+        } else {
+            if (!passed && total && failed <= total) passed = total - failed;
+            if (!failed && total && passed <= total) failed = total - passed;
+        }
+
+        return {
+            generatedAt: payload.generated_at || payload.timestamp || payload.updated_at || 'unknown',
+            summary: { total, passed, failed },
+            results
+        };
+    }
+
     async function loadModelStatus() {
         if (!modelStatusMeta || !modelStatusTable) return;
         modelStatusMeta.textContent = 'Loading...';
         try {
-            // Detect if we're on a date page (in /date/ subdirectory)
-            const isDatePage = window.location.pathname.includes('/date/');
-            const jsonPath = isDatePage ? '../model-status.json' : 'model-status.json';
-            const res = await fetch(jsonPath, { cache: 'no-store' });
+            const res = await fetch(getModelStatusPath(), { cache: 'no-store' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            const summary = data.summary || {};
-            modelStatusMeta.textContent = `Last updated: ${data.generated_at || 'unknown'} | Total: ${summary.total || 0} | Passed: ${summary.passed || 0} | Failed: ${summary.failed || 0}`;
+            const data = normalizeModelStatusData(await res.json());
+            const summary = data.summary;
+            modelStatusMeta.textContent = `Last updated: ${data.generatedAt} | Total: ${summary.total || 0} | Passed: ${summary.passed || 0} | Failed: ${summary.failed || 0}`;
 
-            const rows = (data.results || []).map(r => {
+            const rows = data.results.map(r => {
                 const badgeClass = r.success ? 'ok' : 'fail';
-                const badgeText = r.success ? 'OK' : 'FAIL';
+                const badgeText = r.status || (r.success ? 'OK' : 'FAIL');
                 return `
                     <tr>
                         <td>${r.provider}</td>
                         <td>${r.model}</td>
                         <td><span class="model-status-badge ${badgeClass}">${badgeText}</span></td>
-                        <td>${r.status}</td>
+                        <td>${r.detail || ''}</td>
                         <td>${r.response || ''}</td>
                     </tr>
                 `;
@@ -191,10 +243,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Prefetch status for indicator on load
     (async () => {
         try {
-            const res = await fetch('model-status.json', { cache: 'no-store' });
+            const res = await fetch(getModelStatusPath(), { cache: 'no-store' });
             if (!res.ok) return;
-            const data = await res.json();
-            updateModelIndicator(data.summary || {});
+            const data = normalizeModelStatusData(await res.json());
+            updateModelIndicator(data.summary);
         } catch (_) {
             updateModelIndicator({ failed: 1, total: 1, passed: 0 });
         }

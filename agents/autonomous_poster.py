@@ -21,7 +21,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
 # 从核心层和工具层导入
-from core.utils_security import load_config, resolve_path, desensitize_text
+from core.utils_security import load_config, resolve_path
 
 # 加载安全配置
 SEC_CONFIG = load_config()
@@ -320,8 +320,6 @@ def get_task_history():
                     if start_collecting and line.strip().startswith("-"):
                         task = line.strip().lstrip("-* ").strip()
                         if task and 10 < len(task) < 100:
-                            # 脱敏
-                            task = desensitize_text(task)
                             recent_tasks.append(task)
                     if start_collecting and line.strip() == "" and len(recent_tasks) > 3:
                         break
@@ -344,7 +342,6 @@ def extract_interaction_echo(memory_data):
     ]
 
     text = "\n".join([m.get("content", "") for m in memory_data if m.get("content")])
-    text = desensitize_text(text)
     candidates = []
 
     for raw in text.splitlines():
@@ -381,7 +378,6 @@ def extract_detail_anchors(memory_data=None, code_activity=None):
     if memory_data:
         try:
             text = "\n".join([m.get("content", "") for m in memory_data if m.get("content")])
-            text = desensitize_text(text)
             for raw in text.splitlines():
                 line = raw.strip()
                 if not line:
@@ -2445,7 +2441,6 @@ def check_and_generate_daily_summary(mood, force=False):
                 line = line.strip()
                 if not line or line.startswith('#'): continue
                 if any(k in line.lower() for k in SENSITIVE_KEYWORDS): continue
-                line = desensitize_text(line) 
                 activities.append(line)
         except Exception as e:
             print(f"⚠️ Error reading memory: {e}")
