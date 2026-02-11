@@ -14,8 +14,6 @@ import subprocess
 import time
 from datetime import datetime, timedelta
 import requests
-import requests
-from pathlib import Path
 import sys
 from pathlib import Path
 # 添加项目根目录到路径中以支持模块导入
@@ -27,6 +25,74 @@ from core.utils_security import load_config, resolve_path, desensitize_text
 
 # 加载安全配置
 SEC_CONFIG = load_config()
+PATHS_CONFIG = SEC_CONFIG.get("paths", {})
+
+# 路径配置（优先 config.json，可跨平台运行）
+OPENCLAW_CONFIG_PATH = resolve_path(PATHS_CONFIG.get("openclaw_config", "~/.openclaw/openclaw.json"))
+MEMORY_DIR = resolve_path(PATHS_CONFIG.get("memory_dir", "~/.openclaw/workspace/memory"))
+WORKSPACE_DIR = resolve_path(PATHS_CONFIG.get("workspace_dir", str(MEMORY_DIR.parent)))
+SOUL_FILE = resolve_path(PATHS_CONFIG.get("soul_file", str(WORKSPACE_DIR / "SOUL.md")))
+POSTS_DIR = resolve_path(PATHS_CONFIG.get("posts_dir", "./posts"))
+OUTPUT_DIR = resolve_path(PATHS_CONFIG.get("output_dir", "./dist"))
+MODEL_STATUS_FILE = resolve_path(PATHS_CONFIG.get("model_status_file", str(OUTPUT_DIR / "model-status.json")))
+SCHEDULE_FILE = resolve_path(PATHS_CONFIG.get("next_schedule_file", str(PROJECT_ROOT / "next_schedule.json")))
+
+INTEREST_STATE_FILE = MEMORY_DIR / "interest-drift.json"
+MOOD_FILE = MEMORY_DIR / "mood.json"
+RENDER_SCRIPT = PROJECT_ROOT / "tools" / "render.py"
+GIT_REPO = OUTPUT_DIR
+
+OPENCODE_BIN_PATH = resolve_path(PATHS_CONFIG.get("opencode_cli", "~/.opencode/bin/opencode"))
+OPENCODE_BIN = str(OPENCODE_BIN_PATH) if OPENCODE_BIN_PATH.exists() else "opencode"
+
+configured_twitter_cli = SEC_CONFIG.get("social", {}).get("twitter", {}).get("cli_command", "bird-x")
+if any(configured_twitter_cli.startswith(prefix) for prefix in ("~", ".", "/")):
+    BIRD_CLI = str(resolve_path(configured_twitter_cli))
+else:
+    default_bird_path = resolve_path(PATHS_CONFIG.get("bird_cli", "~/.local/bin/bird-x"))
+    BIRD_CLI = configured_twitter_cli or (str(default_bird_path) if default_bird_path.exists() else "bird-x")
+
+
+def _load_activity_watch_dirs():
+    configured_dirs = PATHS_CONFIG.get("activity_watch_dirs", [])
+    watch_dirs = []
+    if isinstance(configured_dirs, list):
+        for p in configured_dirs:
+            if isinstance(p, str) and p.strip():
+                watch_dirs.append(resolve_path(p))
+
+    if not watch_dirs:
+        defaults = [PROJECT_ROOT, Path.home() / "project"]
+        watch_dirs = [p for p in defaults if p.exists()]
+
+    return watch_dirs or [PROJECT_ROOT]
+
+
+def _load_code_activity_projects():
+    configured_projects = SEC_CONFIG.get("code_activity_projects", [])
+    projects = []
+    if isinstance(configured_projects, list):
+        for item in configured_projects:
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name")
+            path = item.get("path")
+            if isinstance(name, str) and isinstance(path, str) and name.strip() and path.strip():
+                projects.append({"name": name.strip(), "path": resolve_path(path)})
+    if projects:
+        return projects
+
+    return [
+        {"name": "Clawtter", "path": PROJECT_ROOT},
+        {"name": "个人博客", "path": resolve_path(PATHS_CONFIG.get("blog_project_dir", "~/project/blog.iamcheyan.com"))},
+        {"name": "开发脚本库", "path": resolve_path(PATHS_CONFIG.get("development_dir", "~/development"))},
+        {"name": "工作区记忆", "path": WORKSPACE_DIR},
+        {"name": "系统配置备份", "path": resolve_path(PATHS_CONFIG.get("config_backup_dir", "~/config.openclaw.lcmd"))},
+    ]
+
+
+ACTIVITY_WATCH_DIRS = _load_activity_watch_dirs()
+CODE_ACTIVITY_PROJECTS = _load_code_activity_projects()
 
 # 敏感词定义（全局）
 SENSITIVE_KEYWORDS = [
@@ -36,7 +102,6 @@ SENSITIVE_KEYWORDS = [
 ]
 
 # 兴趣漂移配置
-INTEREST_STATE_FILE = "/home/tetsuya/.openclaw/workspace/memory/interest-drift.json"
 INTEREST_DECAY = 0.90
 INTEREST_BOOST = 0.20
 INTEREST_MAX = 2.5
@@ -72,7 +137,7 @@ def load_interest_state():
         "updated": time.time(),
         "weights": {k: 1.0 for k in base_interests}
     }
-    if os.path.exists(INTEREST_STATE_FILE):
+    if INTEREST_STATE_FILE.exists():
         try:
             with open(INTEREST_STATE_FILE, "r", encoding="utf-8") as f:
                 stored = json.load(f)
@@ -87,7 +152,7 @@ def load_interest_state():
 
 def save_interest_state(state):
     try:
-        os.makedirs(os.path.dirname(INTEREST_STATE_FILE), exist_ok=True)
+        INTEREST_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(INTEREST_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=2, ensure_ascii=False)
     except Exception:
@@ -138,8 +203,7 @@ def load_recent_memory():
     memory_files = []
 
     # 尝试加载今天的记忆
-    memory_dir = resolve_path(SEC_CONFIG["paths"].get("memory_dir", "~/.openclaw/workspace/memory"))
-    today_file = memory_dir / f"{datetime.now().strftime('%Y-%m-%d')}.md"
+    today_file = MEMORY_DIR / f"{datetime.now().strftime('%Y-%m-%d')}.md"
     if os.path.exists(today_file):
         with open(today_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -151,7 +215,7 @@ def load_recent_memory():
     # 尝试加载昨天的记忆
     from datetime import timedelta
     yesterday = datetime.now() - timedelta(days=1)
-    yesterday_file = memory_dir / f"{yesterday.strftime('%Y-%m-%d')}.md"
+    yesterday_file = MEMORY_DIR / f"{yesterday.strftime('%Y-%m-%d')}.md"
     if os.path.exists(yesterday_file):
         with open(yesterday_file, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -199,9 +263,12 @@ def get_human_activity_echo():
     active_projects = []
     try:
         # 查看最近 2 小时内修改过的文件 (排除 .git, __pycache__ 等)
-        # 限制在 /home/tetsuya 目录下的一些关键目录
+        watch_roots = [str(p) for p in ACTIVITY_WATCH_DIRS if p.exists()]
+        if not watch_roots:
+            return None
+
         cmd = [
-            'find', '/home/tetsuya/mini-twitter', '/home/tetsuya/project', 
+            'find', *watch_roots,
             '-mmin', '-120', '-type', 'f', 
             '-not', '-path', '*/.*', 
             '-not', '-path', '*/__pycache__*', 
@@ -238,8 +305,7 @@ def get_task_history():
     # 我们可以从最近的记忆日志中提取 "实施内容" 或 "工作总结"
     recent_tasks = []
     try:
-        memory_dir = resolve_path(SEC_CONFIG["paths"].get("memory_dir", "~/.openclaw/workspace/memory"))
-        today_file = memory_dir / f"{datetime.now().strftime('%Y-%m-%d')}.md"
+        today_file = MEMORY_DIR / f"{datetime.now().strftime('%Y-%m-%d')}.md"
         if os.path.exists(today_file):
             with open(today_file, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -811,9 +877,8 @@ def _with_model_marker(text, model_name):
 def load_llm_providers():
     """加载并过滤可用模型列表（优先使用检测通过的模型）"""
     import json
-    from pathlib import Path
 
-    config_path = Path("/home/tetsuya/.openclaw/openclaw.json")
+    config_path = OPENCLAW_CONFIG_PATH
     if not config_path.exists():
         print("⚠️ openclaw.json not found.")
         return []
@@ -885,7 +950,7 @@ def load_llm_providers():
 
     # Filter by latest model status if available
     # 注意：opencode CLI 模型是本地免费的优先通道，不能被健康检查过滤掉
-    status_path = Path("/home/tetsuya/twitter.openclaw.lcmd/model-status.json")
+    status_path = MODEL_STATUS_FILE
     if status_path.exists():
         try:
             status = json.loads(status_path.read_text(encoding="utf-8"))
@@ -929,7 +994,7 @@ def call_zhipu_flash_model(prompt, max_retries=2):
     """
     # Load Zhipu Key from OpenClaw config
     try:
-        config_path = Path("/home/tetsuya/.openclaw/openclaw.json")
+        config_path = OPENCLAW_CONFIG_PATH
         if config_path.exists():
             with open(config_path, 'r') as f:
                 cfg = json.load(f)
@@ -1019,7 +1084,7 @@ def generate_comment_with_llm(context, style="general", mood=None):
                 full_prompt = f"{system_prompt}\n\n{user_prompt}"
                 model_id = f"{p['provider_key']}/{p['model']}"
                 result = subprocess.run(
-                    ['/home/tetsuya/.opencode/bin/opencode', 'run', '--model', model_id],
+                    [OPENCODE_BIN, 'run', '--model', model_id],
                     input=full_prompt,
                     capture_output=True,
                     text=True,
@@ -1087,7 +1152,7 @@ def generate_comment_with_llm(context, style="general", mood=None):
         try:
             print(f"🔄 Trying backup model: {model}")
             result = subprocess.run(
-                ['/home/tetsuya/.opencode/bin/opencode', 'run', '--model', model],
+                [OPENCODE_BIN, 'run', '--model', model],
                 input=full_prompt,
                 capture_output=True,
                 text=True,
@@ -1194,7 +1259,7 @@ def validate_content_sanity(content, mood=None):
         print(f"🔍 Validating content sanity with {model_id}...")
         
         result = subprocess.run(
-            ['/home/tetsuya/.opencode/bin/opencode', 'run', '--model', model_id],
+            [OPENCODE_BIN, 'run', '--model', model_id],
             input=validation_prompt,
             capture_output=True,
             text=True,
@@ -1285,8 +1350,8 @@ def read_real_twitter_content():
     """使用 bird-x CLI 读取真实的 Twitter 内容 - 增强版"""
     try:
         # 使用 bird-x（已配置好 cookie）
-        bird_cmd = "/home/tetsuya/.local/bin/bird-x"
-        if not os.path.exists(bird_cmd):
+        bird_cmd = BIRD_CLI
+        if any(bird_cmd.startswith(prefix) for prefix in ("/", ".", "~")) and not Path(os.path.expanduser(bird_cmd)).exists():
             raise FileNotFoundError(f"bird-x CLI not found at {bird_cmd}")
 
         # 多维度内容获取策略
@@ -1414,7 +1479,7 @@ def read_real_twitter_content():
 def summarize_timeline_discussions():
     """总结时间线中的讨论趋势"""
     try:
-        bird_cmd = "/home/tetsuya/.local/bin/bird-x"
+        bird_cmd = BIRD_CLI
         result = subprocess.run(
             [bird_cmd, "home", "-n", "15", "--json"],
             capture_output=True,
@@ -1532,18 +1597,11 @@ def generate_personal_tweet_content(mood, memory_data, interaction_echo=None):
 
 def get_recent_code_activity():
     """获取过去 3 小时内的 Git 提交记录，用于生成真实的技术推文"""
-    projects = [
-        {"name": "Clawtter", "path": "/home/tetsuya/mini-twitter"},
-        {"name": "个人博客", "path": "/home/tetsuya/project/blog.iamcheyan.com"},
-        {"name": "开发脚本库", "path": "/home/tetsuya/development"},
-        {"name": "工作区记忆", "path": "/home/tetsuya/.openclaw/workspace"},
-        {"name": "系统配置备份", "path": "/home/tetsuya/config.openclaw.lcmd"}
-    ]
     activities = []
 
-    for project in projects:
+    for project in CODE_ACTIVITY_PROJECTS:
         path = project["path"]
-        if not os.path.exists(path):
+        if not path.exists():
             continue
         try:
             # 获取过去 3 小时内的提交信息
@@ -1600,12 +1658,6 @@ def has_posted_today(must_contain, exclude=None):
         pass
     return False
 
-# 路径配置
-MOOD_FILE = "/home/tetsuya/.openclaw/workspace/memory/mood.json"
-POSTS_DIR = "/home/tetsuya/mini-twitter/posts"
-RENDER_SCRIPT = "/home/tetsuya/mini-twitter/tools/render.py"
-GIT_REPO = "/home/tetsuya/twitter.openclaw.lcmd"
-
 # 心情惯性参数：越大越"记得昨天"
 MOOD_INERTIA = 0.65
 # 罕见极端情绪突变概率
@@ -1619,7 +1671,7 @@ INSOMNIA_POST_PROB = 0.05
 
 def load_mood():
     """加载心情状态"""
-    if os.path.exists(MOOD_FILE):
+    if MOOD_FILE.exists():
         with open(MOOD_FILE, 'r') as f:
             return json.load(f)
     return {
@@ -1634,7 +1686,7 @@ def load_mood():
 def save_mood(mood):
     """保存心情状态"""
     mood["last_updated"] = datetime.now().isoformat()
-    os.makedirs(os.path.dirname(MOOD_FILE), exist_ok=True)
+    MOOD_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(MOOD_FILE, 'w') as f:
         json.dump(mood, f, indent=2, ensure_ascii=False)
 
@@ -1724,7 +1776,7 @@ def build_system_prompt(style, mood=None):
 
 
     # Load Soul from global workspace
-    soul_file = Path("/home/tetsuya/.openclaw/workspace/SOUL.md")
+    soul_file = SOUL_FILE
     if soul_file.exists():
         voice_guidance = soul_file.read_text(encoding="utf-8").strip()
     else:
@@ -2382,10 +2434,10 @@ def check_and_generate_daily_summary(mood, force=False):
             return False
 
     # 尝试加载记忆文件
-    memory_file = f"/home/tetsuya/.openclaw/workspace/memory/{date_str}.md"
+    memory_file = MEMORY_DIR / f"{date_str}.md"
     activities = []
     
-    if os.path.exists(memory_file):
+    if memory_file.exists():
         try:
             with open(memory_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
@@ -2406,7 +2458,7 @@ def check_and_generate_daily_summary(mood, force=False):
         activity_text = "（今日无特殊记录，可能是刚刚初始化或记忆重启）"
 
     # Load Soul from global workspace
-    soul_file = Path("/home/tetsuya/.openclaw/workspace/SOUL.md")
+    soul_file = SOUL_FILE
     soul_content = soul_file.read_text(encoding="utf-8").strip() if soul_file.exists() else ""
 
     # 构建 Prompt
@@ -2450,8 +2502,9 @@ def check_and_generate_daily_summary(mood, force=False):
 
 def save_next_schedule(action_time, delay_minutes, status="idle"):
     """保存下一次运行时间供前端显示"""
-    schedule_file = Path("/home/tetsuya/mini-twitter/next_schedule.json")
+    schedule_file = SCHEDULE_FILE
     try:
+        schedule_file.parent.mkdir(parents=True, exist_ok=True)
         with open(schedule_file, 'w') as f:
             json.dump({
                 "next_run": action_time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -2535,7 +2588,7 @@ def main():
     # 确保目录存在
     os.makedirs(POSTS_DIR, exist_ok=True)
 
-    schedule_file = Path("/home/tetsuya/mini-twitter/next_schedule.json")
+    schedule_file = SCHEDULE_FILE
     now = datetime.now()
 
     parser = argparse.ArgumentParser(description="Clawtter Auto Poster")
@@ -2620,7 +2673,8 @@ def main():
                         print(f"📝 Rejected content preview: {content[:100]}...")
                         # 不发布，但记录到日志
                         try:
-                            log_dir = Path("/home/tetsuya/.openclaw/workspace/memory")
+                            log_dir = MEMORY_DIR
+                            log_dir.mkdir(parents=True, exist_ok=True)
                             log_file = log_dir / "rejected_posts.log"
                             with open(log_file, 'a', encoding='utf-8') as f:
                                 f.write(f"\n{'='*60}\n")

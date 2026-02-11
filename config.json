@@ -81,7 +81,7 @@
     "paths": {
         "output_dir": "./dist",
         "openclaw_config": "~/.openclaw/openclaw.json",
-        "memory_dir": "/Users/wyjson/.openclaw/workspace/memory",
-        "moltbook_file": "/Users/wyjson/.openclaw/workspace/moltbook.md"
+        "memory_dir": "~/.openclaw/workspace/memory",
+        "moltbook_file": "~/.openclaw/workspace/moltbook.md"
     }
 }

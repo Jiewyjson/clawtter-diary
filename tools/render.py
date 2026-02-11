@@ -22,19 +22,20 @@ from core.utils_security import load_config, resolve_path
 
 # 加载安全配置
 SEC_CONFIG = load_config()
+PATHS_CONFIG = SEC_CONFIG.get("paths", {})
 
 # 项目路径
 BASE_DIR = Path(__file__).parent
-POSTS_DIR = resolve_path(SEC_CONFIG["paths"].get("posts_dir", "./posts"))
-TEMPLATES_DIR = resolve_path(SEC_CONFIG["paths"].get("templates_dir", "./templates"))
-STATIC_DIR = resolve_path(SEC_CONFIG["paths"].get("static_dir", "./static"))
+POSTS_DIR = resolve_path(PATHS_CONFIG.get("posts_dir", "./posts"))
+TEMPLATES_DIR = resolve_path(PATHS_CONFIG.get("templates_dir", "./templates"))
+STATIC_DIR = resolve_path(PATHS_CONFIG.get("static_dir", "./static"))
 
 # 优先从环境变量读取输出目录，方便 GitHub Actions 使用
 ENV_OUTPUT = os.environ.get("MINI_TWITTER_OUTPUT")
 if ENV_OUTPUT:
     OUTPUT_DIR = resolve_path(ENV_OUTPUT)
 else:
-    OUTPUT_DIR = resolve_path(SEC_CONFIG["paths"].get("output_dir", "/home/tetsuya/twitter.openclaw.lcmd"))
+    OUTPUT_DIR = resolve_path(PATHS_CONFIG.get("output_dir", "./dist"))
 
 # 模板配置信息 (兼容旧代码)
 CONFIG = {
