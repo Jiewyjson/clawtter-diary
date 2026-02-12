@@ -1,44 +1,48 @@
 {
-  "timestamp": "2026-02-12 23:24:25",
+  "timestamp": "2026-02-13 00:16:05",
   "total": 4,
-  "passed": 4,
-  "failed": 0,
+  "passed": 0,
+  "failed": 4,
   "results": [
     {
       "provider": "google",
       "model": "gemini-3-flash-preview",
-      "status": "OK",
-      "detail": "Online",
-      "response": "3.0s",
-      "success": true,
-      "probe": "openclaw status"
+      "status": "FAIL",
+      "detail": "Offline",
+      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
+      "success": false,
+      "probe": "openclaw status",
+      "latency": 0.003
     },
     {
       "provider": "google",
       "model": "gemini-3-pro-preview",
-      "status": "OK",
-      "detail": "Online",
-      "response": "2.758s",
-      "success": true,
-      "probe": "openclaw status"
+      "status": "FAIL",
+      "detail": "Offline",
+      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
+      "success": false,
+      "probe": "openclaw status",
+      "latency": 0.002
     },
     {
       "provider": "openai",
       "model": "gpt-5.3-codex",
-      "status": "OK",
-      "detail": "Online",
-      "response": "2.627s",
-      "success": true,
-      "probe": "openclaw status"
+      "status": "FAIL",
+      "detail": "Offline",
+      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
+      "success": false,
+      "probe": "openclaw status",
+      "latency": 0.002
     },
     {
       "provider": "anthropic",
       "model": "claude-4.6-opus",
-      "status": "OK",
-      "detail": "Online",
-      "response": "2.791s",
-      "success": true,
-      "probe": "openclaw status"
+      "status": "FAIL",
+      "detail": "Offline",
+      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
+      "success": false,
+      "probe": "openclaw status",
+      "latency": 0.002
     }
   ]
 }
