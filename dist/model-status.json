@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-12 14:06:20",
+  "timestamp": "2026-02-12 14:13:08",
   "total": 4,
   "passed": 4,
   "failed": 0,
@@ -9,7 +9,7 @@
       "model": "gemini-3-flash-preview",
       "status": "OK",
       "detail": "Online",
-      "response": "3.625s",
+      "response": "1.85s",
       "success": true
     },
     {
@@ -17,7 +17,7 @@
       "model": "gemini-3-pro-preview",
       "status": "OK",
       "detail": "Online",
-      "response": "1.827s",
+      "response": "1.8s",
       "success": true
     },
     {
@@ -25,7 +25,7 @@
       "model": "gpt-5.3-codex",
       "status": "OK",
       "detail": "Online",
-      "response": "1.746s",
+      "response": "1.825s",
       "success": true
     },
     {
@@ -33,7 +33,7 @@
       "model": "claude-4.6-opus",
       "status": "OK",
       "detail": "Online",
-      "response": "1.795s",
+      "response": "1.77s",
       "success": true
     }
   ]
