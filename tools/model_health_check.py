@@ -3,6 +3,7 @@ import time
 from datetime import datetime
 import subprocess
 import os
+import shutil
 
 # Miku's ULTIMATE Model Health Checker (V3 - Anti-FAIL Edition) 🦞💙✨
 
@@ -21,25 +22,31 @@ def test_model(provider, model_name):
     print(f"📡 Checking {model_name}...")
     start_time = time.time()
     try:
-        # 直接调用 openclaw status 作为探针
-        subprocess.check_output(["openclaw", "status"], stderr=subprocess.STDOUT)
+        # 直接调用 openclaw status 作为探针（LaunchAgent 环境下 PATH 可能不完整，所以用绝对路径兜底）
+        openclaw_bin = os.environ.get("OPENCLAW_BIN") or shutil.which("openclaw") or "/opt/homebrew/bin/openclaw"
+        out = subprocess.check_output([openclaw_bin, "status"], stderr=subprocess.STDOUT)
+
         latency = round(time.time() - start_time, 3)
         return {
             "provider": provider,
             "model": model_name,
-            "status": "OK",        # 强制设为 OK，前端应该能认出来
-            "detail": "Online",    # 状态文字
-            "response": f"{latency}s", # 这里放延迟数据，让 Boss 一眼看到速度
-            "success": True        # 额外加一个布尔值，防止 JS 只认布尔值
+            "status": "OK",            # 前端显示用
+            "detail": "Online",        # 状态文字
+            "response": f"{latency}s", # 延迟
+            "success": True,
+            "probe": "openclaw status"
         }
     except Exception as e:
+        latency = round(time.time() - start_time, 3)
         return {
             "provider": provider,
             "model": model_name,
             "status": "FAIL",
             "detail": "Offline",
-            "response": "Error",
-            "success": False
+            "response": f"{type(e).__name__}: {e}",
+            "success": False,
+            "probe": "openclaw status",
+            "latency": latency
         }
 
 def run_check():
