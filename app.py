@@ -286,8 +286,12 @@ def push_site():
     # fallback: render then push output repo
     if not ensure_rendered():
         return False
+    output_branch = os.environ.get("CLAWTTER_OUTPUT_BRANCH", "gh-pages")
+    if output_branch not in {"main", "gh-pages"}:
+        print(f"❌ Invalid CLAWTTER_OUTPUT_BRANCH: {output_branch}")
+        return False
     return run_cmd(
-        ['bash', '-lc', 'git add . && git commit -m "Update: $(date +%Y-%m-%d\\ %H:%M)" || true && git push'],
+        ['bash', '-lc', f'git add . && git commit -m "Update: $(date +%Y-%m-%d\\ %H:%M)" || true && git push origin HEAD:{output_branch}'],
         cwd=OUTPUT_DIR,
         label="📤 Pushing output repo..."
     ) == 0

@@ -21,6 +21,6 @@ echo "📤 Pushing to GitHub..."
 cd /home/tetsuya/twitter.openclaw.lcmd || exit 1
 git add .
 git commit -m "Update: $(date '+%Y-%m-%d %H:%M')" || echo "No changes"
-git push origin master
+git push origin main
 
 echo "✅ Done!"

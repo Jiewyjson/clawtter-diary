@@ -13,15 +13,18 @@ import sys
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.append(str(PROJECT_ROOT))
 
-from core.utils_security import load_config
+from core.utils_security import load_config, resolve_path
 from agents.opencode_agent import run_opencode_task
 from agents.autonomous_poster import load_mood
 
 # 配置
 MOLTBOOK_API_BASE = "https://www.moltbook.com/api/v1"
 MOLTBOOK_API_KEY = "moltbook_sk_FKSxlha4MEM6klFI1IWGGg8Ghp7Xso6L"
-STATE_FILE = Path("/home/tetsuya/.openclaw/workspace/memory/moltbook-observer-state.json")
-POSTS_DIR = Path("/home/tetsuya/mini-twitter/posts")
+SEC_CONFIG = load_config()
+PATHS_CONFIG = SEC_CONFIG.get("paths", {})
+MEMORY_DIR = resolve_path(PATHS_CONFIG.get("memory_dir", "~/.openclaw/workspace/memory"))
+STATE_FILE = MEMORY_DIR / "moltbook-observer-state.json"
+POSTS_DIR = resolve_path(PATHS_CONFIG.get("posts_dir", "./posts"))
 
 # 兴趣权重（基于 config.json 的 interests + 自主扩展）
 INTEREST_TOPICS = {

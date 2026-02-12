@@ -20,10 +20,15 @@ sys.path.append(str(PROJECT_ROOT))
 
 from core.utils_security import load_config, resolve_path
 
+SEC_CONFIG = load_config()
+PATHS_CONFIG = SEC_CONFIG.get("paths", {})
+
 # 状态文件 - 记录上次检查的推文ID
-STATE_FILE = Path("/home/tetsuya/.openclaw/workspace/memory/human_twitter_monitor.json")
+MEMORY_DIR = resolve_path(PATHS_CONFIG.get("memory_dir", "~/.openclaw/workspace/memory"))
+STATE_FILE = MEMORY_DIR / "human_twitter_monitor.json"
 HUMAN_TWITTER_HANDLE = "iamcheyan"
-POSTS_DIR = Path("/home/tetsuya/mini-twitter/posts")
+POSTS_DIR = resolve_path(PATHS_CONFIG.get("posts_dir", "./posts"))
+BIRD_X_CMD = SEC_CONFIG.get("social", {}).get("twitter", {}).get("cli_command", "bird-x")
 
 def load_state():
     """加载上次检查的状态"""
@@ -49,7 +54,7 @@ def fetch_recent_tweets():
     """使用 bird-x 获取人类最近推文"""
     try:
         result = subprocess.run(
-            ["/home/tetsuya/.local/bin/bird-x", "user-tweets", HUMAN_TWITTER_HANDLE, "-n", "5", "--json"],
+            [BIRD_X_CMD, "user-tweets", HUMAN_TWITTER_HANDLE, "-n", "5", "--json"],
             capture_output=True,
             text=True,
             timeout=30
@@ -154,16 +159,18 @@ def localize_twitter_date(date_str):
         return date_str
 
 def render_and_deploy():
-    """触发重新渲染"""
+    """通过 push.sh 统一执行渲染与部署"""
     try:
+        push_script = PROJECT_ROOT / "push.sh"
         subprocess.run(
-            ["python3", "/home/tetsuya/mini-twitter/tools/render.py"],
-            cwd="/home/tetsuya/mini-twitter",
-            timeout=60
+            ["bash", str(push_script)],
+            cwd=PROJECT_ROOT,
+            check=True,
+            timeout=300
         )
-        print("✅ Render triggered")
+        print("✅ Render and deploy triggered")
     except Exception as e:
-        print(f"⚠️ Render failed: {e}")
+        print(f"⚠️ Render/deploy failed: {e}")
 
 def main():
     """主程序：每小时检查人类推特并互动"""

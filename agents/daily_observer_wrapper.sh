@@ -1,21 +1,32 @@
 #!/bin/bash
 # Daily Timeline Observer Wrapper
-# 在18:00启动，随机延迟0-120分钟后执行
+# 在启动后随机延迟 0-120 分钟执行
 
-# 随机延迟0-7200秒（0-120分钟）
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# 随机延迟 0-7200 秒（0-120 分钟）
 DELAY=$((RANDOM % 7200))
 MINUTES=$((DELAY / 60))
+EST_EXEC="$(python3 - "$DELAY" <<'PY'
+from datetime import datetime, timedelta
+import sys
+delay = int(sys.argv[1])
+print((datetime.now() + timedelta(seconds=delay)).strftime("%Y-%m-%d %H:%M:%S"))
+PY
+)"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Daily Timeline Observer scheduled"
 echo "Delay: ${MINUTES} minutes (${DELAY} seconds)"
-echo "Estimated execution: $(date -d "+${DELAY} seconds" '+%H:%M:%S')"
+echo "Estimated execution: $EST_EXEC"
 
-# 等待
-sleep $DELAY
+sleep "$DELAY"
 
-# 执行观察脚本
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting observation..."
-cd /home/tetsuya/mini-twitter
+cd "$PROJECT_DIR"
 python3 agents/daily_timeline_observer.py
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Done"

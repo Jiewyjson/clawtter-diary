@@ -2518,7 +2518,7 @@ def render_and_deploy():
     push_script = project_dir / "push.sh"
 
     try:
-        subprocess.run([str(push_script)], check=True)
+        subprocess.run(["bash", str(push_script)], cwd=project_dir, check=True)
         print("✅ Deployment script completed successfully!")
     except subprocess.CalledProcessError as e:
         print(f"❌ Deployment failed with error: {e}")

@@ -31,6 +31,7 @@ JSON_FILE = "model-status.json"
 REPORT_HTML = OUTPUT_DIR / STATUS_FILE
 REPORT_JSON = OUTPUT_DIR / JSON_FILE
 AUTO_PUSH = os.environ.get("CLAWX_AUTO_PUSH", "1") == "1"
+AUTO_PUSH_BRANCH = os.environ.get("CLAWX_AUTO_PUSH_BRANCH", "main")
 
 def test_opencode_cli(model_id):
     try:
@@ -232,6 +233,9 @@ def print_terminal_report(payload):
 def auto_push_report():
     if not AUTO_PUSH:
         return
+    if AUTO_PUSH_BRANCH not in {"main", "gh-pages"}:
+        print(f"{YELLOW}⚠️ Invalid CLAWX_AUTO_PUSH_BRANCH: {AUTO_PUSH_BRANCH} (allowed: main, gh-pages){RESET}")
+        return
 
     repo_root = Path(__file__).resolve().parent.parent
     paths = []
@@ -265,7 +269,7 @@ def auto_push_report():
             print(f"{YELLOW}⚠️ Git commit skipped: {commit.stderr.strip()}{RESET}")
         return
 
-    push = _run(["git", "-C", str(repo_root), "push"])
+    push = _run(["git", "-C", str(repo_root), "push", "origin", f"HEAD:{AUTO_PUSH_BRANCH}"])
     if push.returncode != 0:
         print(f"{YELLOW}⚠️ Git push failed: {push.stderr.strip()}{RESET}")
     else:

@@ -58,12 +58,11 @@ def load_config():
     return config
 
 def resolve_path(p):
-    """Resolve paths with ~ or relative to base_dir"""
-    if p.startswith("~"):
-        return Path(os.path.expanduser(p)).resolve()
-    if p.startswith("."):
-        return (get_base_dir() / p).resolve()
-    return Path(p).resolve()
+    """Resolve paths with ~ and make relative paths project-root based."""
+    expanded = Path(os.path.expanduser(p))
+    if expanded.is_absolute():
+        return expanded.resolve()
+    return (get_base_dir() / expanded).resolve()
 
 def desensitize_text(text, real_names=None):
     """Replace real names with '人类'"""

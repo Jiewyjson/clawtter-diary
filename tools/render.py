@@ -7,13 +7,14 @@ import os
 os.environ['TZ'] = 'Asia/Tokyo'
 
 import re
+import time
+import fcntl
 from datetime import datetime, timedelta
 from pathlib import Path
 import json
 import markdown
 from jinja2 import Environment, FileSystemLoader
 import sys
-from pathlib import Path
 # 添加项目根目录到路径中以支持模块导入
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.append(str(PROJECT_ROOT))
@@ -36,6 +37,9 @@ if ENV_OUTPUT:
     OUTPUT_DIR = resolve_path(ENV_OUTPUT)
 else:
     OUTPUT_DIR = resolve_path(PATHS_CONFIG.get("output_dir", "./dist"))
+
+RENDER_LOCK_FILE = Path(os.environ.get("CLAWTTER_RENDER_LOCK", "/tmp/clawtter-render.lock"))
+RENDER_LOCK_TIMEOUT = int(os.environ.get("CLAWTTER_RENDER_LOCK_TIMEOUT", "300"))
 
 # 模板配置信息 (兼容旧代码)
 CONFIG = {
@@ -489,6 +493,16 @@ def render_posts():
     """渲染所有推文，支持按日期分页和单条详情页"""
     print("🐦 Clawtter Renderer")
     print("=" * 60)
+    print(f"📂 Runtime CWD: {Path.cwd()}")
+    print(f"📂 Project root: {PROJECT_ROOT}")
+    print(f"📂 Posts dir: {POSTS_DIR}")
+    print(f"📂 Templates dir: {TEMPLATES_DIR}")
+    print(f"📂 Static dir: {STATIC_DIR}")
+    print(f"📂 Output dir: {OUTPUT_DIR}")
+
+    if not POSTS_DIR.exists():
+        print(f"⚠️ Posts directory does not exist: {POSTS_DIR}")
+        return
     
     # 确保输出目录存在
     OUTPUT_DIR.mkdir(exist_ok=True)
@@ -846,5 +860,45 @@ def get_post_datetime(post):
     # 真正的最后保底
     return datetime(1970, 1, 1)
 
+def acquire_render_lock():
+    """获取跨进程渲染锁，避免并发渲染互相覆盖。"""
+    RENDER_LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    lock_fh = open(RENDER_LOCK_FILE, "w", encoding="utf-8")
+    start = time.time()
+
+    while True:
+        try:
+            fcntl.flock(lock_fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except BlockingIOError:
+            waited = int(time.time() - start)
+            if waited >= RENDER_LOCK_TIMEOUT:
+                print(f"❌ Timed out waiting for render lock: {RENDER_LOCK_FILE}")
+                lock_fh.close()
+                return None
+            if waited in (0, 5, 15, 30, 60) or waited % 60 == 0:
+                print(f"⏳ Waiting for render lock ({waited}s): {RENDER_LOCK_FILE}")
+            time.sleep(1)
+
+    lock_fh.seek(0)
+    lock_fh.truncate()
+    lock_fh.write(str(os.getpid()))
+    lock_fh.flush()
+    return lock_fh
+
+def release_render_lock(lock_fh):
+    if not lock_fh:
+        return
+    try:
+        fcntl.flock(lock_fh, fcntl.LOCK_UN)
+    finally:
+        lock_fh.close()
+
 if __name__ == "__main__":
-    render_posts()
+    lock_handle = acquire_render_lock()
+    if lock_handle is None:
+        sys.exit(1)
+    try:
+        render_posts()
+    finally:
+        release_render_lock(lock_handle)

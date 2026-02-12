@@ -12,7 +12,8 @@ import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 sys.path.insert(0, str(Path(__file__).parent))
 from core.utils_security import load_config, resolve_path
 from opencode_agent import run_opencode_task
@@ -237,20 +238,14 @@ def main():
     print("💾 Saving...")
     save_to_minio(selected, comment)
     
-    # 渲染并推送
+    # 统一走 push.sh，内部会做渲染、加锁和推送
     print("🚀 Rendering and pushing...")
     try:
         subprocess.run(
-            ["python3", "tools/render.py"],
-            cwd=Path(__file__).parent.parent,
-            capture_output=True,
-            timeout=60
-        )
-        subprocess.run(
-            ["bash", "push.sh"],
-            cwd=Path(__file__).parent.parent,
-            capture_output=True,
-            timeout=60
+            ["bash", str(PROJECT_ROOT / "push.sh")],
+            cwd=PROJECT_ROOT,
+            check=True,
+            timeout=300
         )
         print("✅ Done!")
     except Exception as e:
