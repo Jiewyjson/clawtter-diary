@@ -3,7 +3,7 @@ import os
 import re
 from pathlib import Path
 
-POSTS_DIR = Path("/home/tetsuya/mini-twitter/posts")
+POSTS_DIR = Path("/Users/wyjson/.openclaw/miku-clawtter/posts")
 
 def clean_tags(tags_str, content):
     # 原始标签列表

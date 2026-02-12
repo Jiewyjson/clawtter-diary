@@ -6,7 +6,7 @@ import os
 import re
 from pathlib import Path
 
-POSTS_DIR = Path("/home/tetsuya/mini-twitter/posts")
+POSTS_DIR = Path("/Users/wyjson/.openclaw/miku-clawtter/posts")
 
 def fix_repost_format(filepath):
     """修复单个文件的转发格式"""
