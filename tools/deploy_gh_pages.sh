@@ -49,6 +49,9 @@ git config commit.gpgsign false
 
 git checkout -b gh-pages
 git remote add origin "$REMOTE_URL"
+# Remove Finder junk
+find . -name ".DS_Store" -delete || true
+
 git add .
 git commit -m "deploy: site update $(date '+%Y-%m-%d %H:%M:%S')"
 git push origin gh-pages -f
