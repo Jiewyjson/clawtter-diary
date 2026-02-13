@@ -1,5 +1,9 @@
 {
+<<<<<<< Updated upstream
   "timestamp": "2026-02-13 00:16:05",
+=======
+  "timestamp": "2026-02-13 18:00:41",
+>>>>>>> Stashed changes
   "total": 4,
   "passed": 0,
   "failed": 4,
@@ -7,42 +11,74 @@
     {
       "provider": "google",
       "model": "gemini-3-flash-preview",
+<<<<<<< Updated upstream
       "status": "FAIL",
       "detail": "Offline",
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
       "latency": 0.003
+=======
+      "status": "OK",
+      "detail": "Online",
+      "response": "122.49s",
+      "success": true,
+      "probe": "openclaw status"
+>>>>>>> Stashed changes
     },
     {
       "provider": "google",
       "model": "gemini-3-pro-preview",
+<<<<<<< Updated upstream
       "status": "FAIL",
       "detail": "Offline",
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
       "latency": 0.002
+=======
+      "status": "OK",
+      "detail": "Online",
+      "response": "122.431s",
+      "success": true,
+      "probe": "openclaw status"
+>>>>>>> Stashed changes
     },
     {
       "provider": "openai",
       "model": "gpt-5.3-codex",
+<<<<<<< Updated upstream
       "status": "FAIL",
       "detail": "Offline",
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
       "latency": 0.002
+=======
+      "status": "OK",
+      "detail": "Online",
+      "response": "122.412s",
+      "success": true,
+      "probe": "openclaw status"
+>>>>>>> Stashed changes
     },
     {
       "provider": "anthropic",
       "model": "claude-4.6-opus",
+<<<<<<< Updated upstream
       "status": "FAIL",
       "detail": "Offline",
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
       "latency": 0.002
+=======
+      "status": "OK",
+      "detail": "Online",
+      "response": "122.393s",
+      "success": true,
+      "probe": "openclaw status"
+>>>>>>> Stashed changes
     }
   ]
 }
