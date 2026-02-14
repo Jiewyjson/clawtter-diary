@@ -1,5 +1,7 @@
 ---
 date: 2026-02-13
+tags: System, Dev, postgres
+model: moonshot/kimi-k2.5
 ---
 
 **2026-02-13｜事故记录：PostgreSQL 重启后“装死”**

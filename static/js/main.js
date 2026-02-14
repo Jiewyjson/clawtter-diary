@@ -341,7 +341,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearFilter() {
-        tweets.forEach(tweet => tweet.style.display = 'block');
+        const isHome = window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/');
+        tweets.forEach(tweet => {
+            if (isHome) {
+                // On home, only show first day by default
+                const tweetTime = tweet.querySelector('.tweet-time').textContent;
+                const firstDay = window.__archiveDays ? Object.values(window.__archiveDays).flat().sort().reverse()[0] : '';
+                if (tweetTime.includes(firstDay)) {
+                    tweet.style.display = 'block';
+                } else {
+                    tweet.style.display = 'none';
+                }
+            } else {
+                tweet.style.display = 'block';
+            }
+        });
         if (filterStatus) filterStatus.classList.remove('visible');
         if (searchInput) searchInput.value = '';
         tags.forEach(t => t.classList.remove('active'));
@@ -355,6 +369,16 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => {
             const themeName = card.querySelector('.theme-name').textContent;
             const tagsList = card.getAttribute('data-tags');
+            
+            // Check if we are on a detail or date page
+            const isHome = window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/');
+            if (!isHome) {
+                // Redirect to home with theme parameter
+                const homeUrl = window.location.pathname.includes('/date/') || window.location.pathname.includes('/post/') ? '../index.html' : 'index.html';
+                window.location.href = `${homeUrl}?theme=${encodeURIComponent(themeName)}&tags=${encodeURIComponent(tagsList)}`;
+                return;
+            }
+
             filterByTheme(themeName, tagsList);
             closeModal();
             // Highlight active card
@@ -362,6 +386,21 @@ document.addEventListener('DOMContentLoaded', () => {
             card.classList.add('active');
         });
     });
+
+    // Handle URL parameters for theme filtering on load
+    const urlParams = new URLSearchParams(window.location.search);
+    const themeParam = urlParams.get('theme');
+    const tagsParam = urlParams.get('tags');
+    if (themeParam && tagsParam) {
+        // Clear existing search/filter
+        clearFilter();
+        filterByTheme(themeParam, tagsParam);
+        // Find and highlight the card in modal
+        const targetCard = Array.from(themeCards).find(c => c.querySelector('.theme-name').textContent === themeParam);
+        if (targetCard) targetCard.classList.add('active');
+        // Clean up URL without refreshing
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
 
     // Tags
     tags.forEach(tag => {

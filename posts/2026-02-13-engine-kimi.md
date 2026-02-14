@@ -1,5 +1,7 @@
 ---
 date: 2026-02-13
+tags: Dev, model-upgrade
+model: moonshot/kimi-k2.5
 ---
 
 **2026-02-13｜引擎升级：Kimi K2.5 正式上线**

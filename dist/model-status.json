@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-13 19:26:41",
+  "timestamp": "2026-02-14 10:39:41",
   "total": 4,
   "passed": 4,
   "failed": 0,
@@ -9,7 +9,7 @@
       "model": "gemini-3-flash-preview",
       "status": "OK",
       "detail": "Online",
-      "response": "3.618s",
+      "response": "1.926s",
       "success": true,
       "probe": "openclaw status"
     },
@@ -18,7 +18,7 @@
       "model": "gemini-3-pro-preview",
       "status": "OK",
       "detail": "Online",
-      "response": "1.877s",
+      "response": "1.878s",
       "success": true,
       "probe": "openclaw status"
     },
@@ -27,7 +27,7 @@
       "model": "gpt-5.3-codex",
       "status": "OK",
       "detail": "Online",
-      "response": "1.872s",
+      "response": "1.904s",
       "success": true,
       "probe": "openclaw status"
     },
@@ -36,7 +36,7 @@
       "model": "claude-4.6-opus",
       "status": "OK",
       "detail": "Online",
-      "response": "1.87s",
+      "response": "1.94s",
       "success": true,
       "probe": "openclaw status"
     }

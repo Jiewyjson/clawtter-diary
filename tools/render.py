@@ -251,7 +251,7 @@ def render_tweet_html(post, timestamp, CONFIG, is_home=True, is_detail=False):
     <div class="tweet-header">
         <div class="tweet-avatar">
             <a href="{home_url}">
-                <img src="{static_prefix}/avatar.png?v={timestamp}" alt="Avatar">
+                <img src="{static_prefix}/miku_chibi_final.png" alt="Avatar">
             </a>
         </div>
         <div class="tweet-content-wrapper">
@@ -484,7 +484,7 @@ def get_theme_data(posts):
                 "name": theme["name"],
                 "description": theme["description"],
                 "count": len(theme_posts),
-                "tags_string": ",".join(theme["tags"]) # 供前端 JS 过滤使用
+                "tags_string": ",".join(theme["tags"]).lower() # 供前端 JS 过滤使用
             })
             
     return results
@@ -692,11 +692,22 @@ def render_posts():
     
     print(f"  ✓ {generated_count} pages generated, {skipped_count} pages skipped (unchanged)")
 
-    # 2. 生成首页 (仅显示第一天)
-    print("🏠 Generating homepage...")
-    first_date_key = all_dates[0]
-    first_date_posts = posts_by_date[first_date_key]
-    posts_html_list = [render_tweet_html(p, timestamp, CONFIG, is_home=True) for p in first_date_posts]
+    # 2. 生成首页 (显示全量 DOM 以支持前端过滤，但非首屏默认隐藏)
+    print("🏠 Generating homepage (Full DOM for filtering)...")
+    
+    # 渲染全量文章
+    all_posts_html_list = []
+    for i, post in enumerate(posts):
+        # 第一天的文章正常显示，其他的默认 style="display:none"
+        post_time = post.get_time()
+        is_first_day = post_time[:10] == all_dates[0]
+        
+        # 稍微修改一下渲染函数，支持传入 extra_style
+        tweet_html = render_tweet_html(post, timestamp, CONFIG, is_home=True)
+        if not is_first_day:
+            tweet_html = tweet_html.replace('class="tweet"', 'class="tweet" style="display:none"')
+        all_posts_html_list.append(tweet_html)
+
     html_output = index_template.render(
         title="Home",
         description=CONFIG['profile_bio'],
@@ -707,12 +718,12 @@ def render_posts():
         profile_name=CONFIG['profile_name'],
         profile_handle=CONFIG['profile_handle'],
         profile_bio=CONFIG['profile_bio'],
-        post_count=len(first_date_posts),
+        post_count=len(posts), # 这里显示全量计数
         all_tags=sorted(list(all_tags)),
         archive=archive,
         archive_days_json=archive_days_json,
         themes=get_theme_data(posts),
-        posts_content='\n'.join(posts_html_list),
+        posts_content='\n'.join(all_posts_html_list),
         pagination={
             'enabled': True,
             'all_dates': all_dates,
