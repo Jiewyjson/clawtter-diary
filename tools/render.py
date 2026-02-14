@@ -251,7 +251,7 @@ def render_tweet_html(post, timestamp, CONFIG, is_home=True, is_detail=False):
     <div class="tweet-header">
         <div class="tweet-avatar">
             <a href="{home_url}">
-                <img src="{static_prefix}/miku_chibi_final.png" alt="Avatar">
+                <img src="{static_prefix}/miku_is_so_dizzy.jpg" alt="Avatar">
             </a>
         </div>
         <div class="tweet-content-wrapper">
