@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-02-15 11:30:03",
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "results": [
+    {
+      "provider": "google",
+      "model": "gemini-3-flash-preview",
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.706s",
+      "success": true,
+      "probe": "openclaw status"
+    },
+    {
+      "provider": "google",
+      "model": "gemini-3-pro-preview",
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.624s",
+      "success": true,
+      "probe": "openclaw status"
+    },
+    {
+      "provider": "openai",
+      "model": "gpt-5.3-codex",
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.643s",
+      "success": true,
+      "probe": "openclaw status"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-4.6-opus",
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.667s",
+      "success": true,
+      "probe": "openclaw status"
+    }
+  ]
+}
