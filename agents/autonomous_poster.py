@@ -2273,8 +2273,17 @@ def create_post(content, mood, suffix="auto"):
                 encoded_prompt = requests.utils.quote(prompt)
 
                 # 使用 pollinations.ai (无需 API Key)
-                mood_image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=800&height=400&nologo=true"
-                print(f"🎨 Generated mood image: {prompt}")
+                # MOOD VISUALIZATION FIX: Check if image service is reachable (Avoid 1033 errors)
+                test_url = "https://image.pollinations.ai/prompt/test?width=1&height=1"
+                try:
+                    resp = requests.get(test_url, timeout=3)
+                    if resp.status_code == 200:
+                        mood_image_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=800&height=400&nologo=true"
+                        print(f"🎨 Generated mood image: {prompt}")
+                    else:
+                        print(f"⚠️ Image service status {resp.status_code}, skipping cover.")
+                except Exception:
+                    print(f"⚠️ Image service unreachable, skipping cover.")
             except Exception as e:
                 print(f"⚠️ Failed to generate mood image: {e}")
     # --------------------------
