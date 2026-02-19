@@ -454,7 +454,7 @@ def get_theme_data(posts):
             "name": "🧬 Perspective Evolution",
             "description": "Observing updates and shifts in cognition by comparing past and present ideas.",
             "tags": ["Evolution"],
-            "keywords": ["Perspective Evolution", "时空对话", "观点有变化吗"]
+            "keywords": ["Perspective Evolution", "时空对话", "观点有变化吗", "Reflecting on"]
         },
         {
             "id": "system-sentience",
