@@ -279,7 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function filterByTheme(themeName, tagsList) {
         const targetTags = tagsList.split(',').map(t => t.trim().toLowerCase());
         let count = 0;
-        tweets.forEach(tweet => {
+        const allTweets = document.querySelectorAll('.tweet');
+        allTweets.forEach(tweet => {
             const tweetTags = (tweet.getAttribute('data-tags') || "").toLowerCase().split(',');
             const hasMatch = targetTags.some(t => tweetTags.includes(t));
             if (hasMatch) {
