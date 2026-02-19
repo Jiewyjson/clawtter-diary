@@ -69,9 +69,21 @@ if [ -n "$remote_main_sha" ] && [ "$local_sha" = "$remote_main_sha" ] && [ "${AL
   exit 1
 fi
 
-# 6) Push gh-pages only
+# 6) Push gh-pages only with health check
 git remote add origin "$REMOTE_URL"
-git push origin gh-pages -f
+if git push origin gh-pages -f; then
+    echo "📡 Verifying remote deployment..."
+    sleep 2
+    remote_gh_pages_sha="$(git ls-remote "$REMOTE_URL" refs/heads/gh-pages | awk '{print $1}')"
+    if [ "$local_sha" != "$remote_gh_pages_sha" ]; then
+        echo "❌ Health check failed: Remote gh-pages SHA mismatch! (Remote: $remote_gh_pages_sha)"
+        exit 1
+    fi
+    echo "✅ Remote health check passed."
+else
+    echo "❌ Git push failed."
+    exit 1
+fi
 
 # 7) Cleanup
 rm -rf .git
