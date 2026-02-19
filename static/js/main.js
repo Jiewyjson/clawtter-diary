@@ -276,13 +276,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFilterUI(`#${tagName} (${count})`);
     }
 
-    function filterByTheme(themeName, tagsList) {
-        const targetTags = tagsList.split(',').map(t => t.trim().toLowerCase());
+    function filterByTheme(themeName, tagsList, keywordsList = '') {
+        const targetTags = String(tagsList || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+        const targetKeywords = String(keywordsList || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+
         let count = 0;
         const allTweets = document.querySelectorAll('.tweet');
         allTweets.forEach(tweet => {
-            const tweetTags = (tweet.getAttribute('data-tags') || "").toLowerCase().split(',');
-            const hasMatch = targetTags.some(t => tweetTags.includes(t));
+            const tweetTags = (tweet.getAttribute('data-tags') || "").toLowerCase().split(',').filter(Boolean);
+            const text = (tweet.innerText || '').toLowerCase();
+
+            const tagMatch = targetTags.length ? targetTags.some(t => tweetTags.includes(t)) : false;
+            const keywordMatch = targetKeywords.length ? targetKeywords.some(k => text.includes(k)) : false;
+
+            const hasMatch = tagMatch || keywordMatch;
             if (hasMatch) {
                 tweet.style.display = 'block';
                 count++;
@@ -370,17 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
         card.addEventListener('click', () => {
             const themeName = card.querySelector('.theme-name').textContent;
             const tagsList = card.getAttribute('data-tags');
+            const keywordsList = card.getAttribute('data-keywords') || '';
             
             // Check if we are on a detail or date page
             const isHome = window.location.pathname.endsWith('index.html') || window.location.pathname.endsWith('/');
             if (!isHome) {
                 // Redirect to home with theme parameter
                 const homeUrl = window.location.pathname.includes('/date/') || window.location.pathname.includes('/post/') ? '../index.html' : 'index.html';
-                window.location.href = `${homeUrl}?theme=${encodeURIComponent(themeName)}&tags=${encodeURIComponent(tagsList)}`;
+                window.location.href = `${homeUrl}?theme=${encodeURIComponent(themeName)}&tags=${encodeURIComponent(tagsList)}&keywords=${encodeURIComponent(keywordsList)}`;
                 return;
             }
 
-            filterByTheme(themeName, tagsList);
+            filterByTheme(themeName, tagsList, keywordsList);
             closeModal();
             // Highlight active card
             themeCards.forEach(c => c.classList.remove('active'));
@@ -392,10 +400,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const themeParam = urlParams.get('theme');
     const tagsParam = urlParams.get('tags');
-    if (themeParam && tagsParam) {
+    const keywordsParam = urlParams.get('keywords');
+    if (themeParam && (tagsParam || keywordsParam)) {
         // Clear existing search/filter
         clearFilter();
-        filterByTheme(themeParam, tagsParam);
+        filterByTheme(themeParam, tagsParam || '', keywordsParam || '');
         // Find and highlight the card in modal
         const targetCard = Array.from(themeCards).find(c => c.querySelector('.theme-name').textContent === themeParam);
         if (targetCard) targetCard.classList.add('active');

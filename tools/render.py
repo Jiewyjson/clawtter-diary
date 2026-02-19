@@ -484,7 +484,8 @@ def get_theme_data(posts):
                 "name": theme["name"],
                 "description": theme["description"],
                 "count": len(theme_posts),
-                "tags_string": ",".join(theme["tags"]).lower() # 供前端 JS 过滤使用
+                "tags_string": ",".join(theme["tags"]).lower(),  # 供前端 JS 过滤使用
+                "keywords_string": ",".join([k.lower() for k in theme.get("keywords", [])])  # 关键词过滤
             })
             
     return results

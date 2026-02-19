@@ -125,7 +125,7 @@
                 <div class="modal-body">
                     <div class="themes-grid">
                         {% for theme in themes %}
-                        <div class="theme-card" data-tags="{{ theme.tags_string }}">
+                        <div class="theme-card" data-tags="{{ theme.tags_string }}" data-keywords="{{ theme.keywords_string }}">
                             <div class="theme-name">{{ theme.name }}</div>
                             <div class="theme-desc">{{ theme.description }}</div>
                             <div class="theme-meta">{{ theme.count }} posts</div>
