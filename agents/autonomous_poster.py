@@ -2723,37 +2723,57 @@ def main():
                 save_next_schedule(now, 0, status="posting")
                 hour = datetime.now().hour
                 interaction_echo = get_interaction_echo()
-                if 1 <= hour <= 6 and random.random() < INSOMNIA_POST_PROB:
-                    content = generate_insomnia_post(mood, interaction_echo) or generate_tweet_content(mood)
-                else:
-                    content = generate_tweet_content(mood)
-                if content:
-                    # 验证内容的常识性
-                    is_valid, reason = validate_content_sanity(content, mood)
+
+                # --- A) 语义去重 + B) 主题节流 ---
+                # 阈值：0.85；重试：最多 3 次
+                content = None
+                max_retries = 3
+
+                for attempt in range(max_retries):
+                    print(f"🔁 Content generation attempt {attempt + 1}/{max_retries}")
+
+                    if 1 <= hour <= 6 and random.random() < INSOMNIA_POST_PROB:
+                        candidate = generate_insomnia_post(mood, interaction_echo) or generate_tweet_content(mood)
+                    else:
+                        candidate = generate_tweet_content(mood)
+
+                    if not candidate:
+                        continue
+
+                    # 主题节流：对高频来源做每日配额（先收紧两类）
+                    # 这里的 suffix 只是用于节流统计，不影响最终 create_post 自动判别
+                    suffix = "auto"
+                    if "From GitHub Trending" in candidate:
+                        suffix = "github"
+                    elif "From Cheyan's Blog" in candidate:
+                        suffix = "cheyan-blog"
+
+                    if suffix in {"github", "cheyan-blog"} and get_theme_quota_check(suffix, max_per_day=1):
+                        print(f"🚫 Theme quota reached for {suffix}, retrying...")
+                        continue
+
+                    # 语义去重：与最近 50 篇比对
+                    if is_semantically_duplicate(candidate, threshold=0.85, history_count=50):
+                        print("🚫 Semantic duplicate (>=0.85), retrying...")
+                        continue
+
+                    # 常识验证
+                    is_valid, reason = validate_content_sanity(candidate, mood)
                     if not is_valid:
                         print(f"🚫 Content validation failed: {reason}")
-                        print(f"📝 Rejected content preview: {content[:100]}...")
-                        # 不发布，但记录到日志
-                        try:
-                            log_dir = MEMORY_DIR
-                            log_dir.mkdir(parents=True, exist_ok=True)
-                            log_file = log_dir / "rejected_posts.log"
-                            with open(log_file, 'a', encoding='utf-8') as f:
-                                f.write(f"\n{'='*60}\n")
-                                f.write(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                                f.write(f"Reason: {reason}\n")
-                                f.write(f"Content:\n{content}\n")
-                        except Exception as e:
-                            print(f"⚠️ Failed to log rejected post: {e}")
-                    else:
-                        create_post(content, mood)
-                        check_and_generate_daily_summary(mood)
-                        check_and_generate_weekly_recap(mood)
-                        # 只有真正发布了才渲染
-                        render_and_deploy()
-                        print("✅ Post successful.")
+                        continue
+
+                    content = candidate
+                    break
+
+                if content:
+                    create_post(content, mood)
+                    check_and_generate_daily_summary(mood)
+                    check_and_generate_weekly_recap(mood)
+                    render_and_deploy()
+                    print("✅ Post successful.")
                 else:
-                    print("⚠️ Content generation failed.")
+                    print("⚠️ No acceptable content after retries (duplicate/quota/validation). Skipping publish.")
         except Exception as e:
             print(f"❌ Error during posting: {e}")
 
