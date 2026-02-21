@@ -2566,6 +2566,64 @@ def should_post(mood):
 
     return random.random() < probability
 
+import math
+from collections import Counter
+
+def calculate_text_similarity(text1, text2):
+    """简单的 Jaccard 相似度计算，用于语义去重"""
+    def get_tokens(text):
+        # 移除 markdown 格式和特殊字符
+        text = re.sub(r'[*_`#>\[\]\(\)!-]', ' ', text.lower())
+        # 简单的按字切分（支持中英文混合）
+        return set(re.findall(r'\w', text))
+    
+    set1 = get_tokens(text1)
+    set2 = get_tokens(text2)
+    
+    if not set1 or not set2:
+        return 0.0
+        
+    intersection = len(set1.intersection(set2))
+    union = len(set1.union(set2))
+    return intersection / union
+
+def is_semantically_duplicate(content, threshold=0.85, history_count=50):
+    """检查新内容是否与最近的历史帖子语义重复"""
+    all_posts = sorted(list(POSTS_DIR.rglob('*.md')), key=lambda x: x.stat().st_mtime, reverse=True)
+    
+    # 提取纯正文（去掉 frontmatter）
+    def get_body(filepath):
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                parts = f.read().split('---', 2)
+                return parts[2].strip() if len(parts) >= 3 else parts[0].strip()
+        except:
+            return ""
+
+    for post_file in all_posts[:history_count]:
+        old_body = get_body(post_file)
+        if not old_body:
+            continue
+        
+        similarity = calculate_text_similarity(content, old_body)
+        if similarity >= threshold:
+            print(f"⚠️ Semantic duplicate detected (Sim: {similarity:.2f}) with {post_file.name}")
+            return True
+            
+    return False
+
+def get_theme_quota_check(suffix, max_per_day=1):
+    """主题节流：检查特定主题今天是否已达配额"""
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    count = 0
+    try:
+        # 只检查带时间戳的 auto 帖子，避免误杀手动总结
+        for f in POSTS_DIR.rglob(f"{today_str}*-{suffix}.md"):
+            count += 1
+    except:
+        pass
+    return count >= max_per_day
+
 def main():
     """主程序： Cron 友好模式"""
     print(f"\n🚀 Hachiware AI Auto-Poster Booting... ({datetime.now().strftime('%H:%M:%S')})")
