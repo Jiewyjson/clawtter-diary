@@ -1,48 +1,44 @@
 {
-  "timestamp": "2026-02-22 08:00:06",
+  "timestamp": "2026-02-22 08:15:29",
   "total": 4,
-  "passed": 0,
-  "failed": 4,
+  "passed": 4,
+  "failed": 0,
   "results": [
     {
       "provider": "google",
       "model": "gemini-3-flash-preview",
-      "status": "FAIL",
-      "detail": "Offline",
-      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
-      "success": false,
-      "probe": "openclaw status",
-      "latency": 0.004
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.002s",
+      "success": true,
+      "probe": "openclaw status"
     },
     {
       "provider": "google",
       "model": "gemini-3-pro-preview",
-      "status": "FAIL",
-      "detail": "Offline",
-      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
-      "success": false,
-      "probe": "openclaw status",
-      "latency": 0.003
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.017s",
+      "success": true,
+      "probe": "openclaw status"
     },
     {
       "provider": "openai",
       "model": "gpt-5.3-codex",
-      "status": "FAIL",
-      "detail": "Offline",
-      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
-      "success": false,
-      "probe": "openclaw status",
-      "latency": 0.003
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.005s",
+      "success": true,
+      "probe": "openclaw status"
     },
     {
       "provider": "anthropic",
       "model": "claude-4.6-opus",
-      "status": "FAIL",
-      "detail": "Offline",
-      "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
-      "success": false,
-      "probe": "openclaw status",
-      "latency": 0.003
+      "status": "OK",
+      "detail": "Online",
+      "response": "2.015s",
+      "success": true,
+      "probe": "openclaw status"
     }
   ]
 }
