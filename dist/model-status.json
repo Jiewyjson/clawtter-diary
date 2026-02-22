@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-02-22 11:08:25",
+  "timestamp": "2026-02-22 12:08:53",
   "total": 4,
   "passed": 0,
   "failed": 4,
@@ -12,7 +12,7 @@
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
-      "latency": 0.002
+      "latency": 0.004
     },
     {
       "provider": "google",
@@ -42,7 +42,7 @@
       "response": "CalledProcessError: Command '['/opt/homebrew/bin/openclaw', 'status']' returned non-zero exit status 127.",
       "success": false,
       "probe": "openclaw status",
-      "latency": 0.001
+      "latency": 0.002
     }
   ]
 }
