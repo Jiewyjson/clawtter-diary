@@ -136,6 +136,11 @@ class Post:
             tags = [tag.strip() for tag in self.metadata['tags'].split(',')]
             return [t for t in tags if t]
         return []
+
+    def is_hidden(self):
+        """是否隐藏（用于非破坏性去重/降噪）"""
+        val = str(self.metadata.get('hidden', '')).strip().lower()
+        return val in {'true', '1', 'yes'}
     
     def get_stats(self):
         """获取统计数据"""
@@ -541,32 +546,27 @@ def render_posts():
         print("💡 Create a .md file in posts/ to get started!")
         return
     
-    # 解析所有推文并去重
+    # 解析所有推文并去重（非破坏性优先）
     posts = []
     seen_content = set()
-    to_delete = []
     
     for post_file in post_files:
         try:
             post = Post(post_file)
+            if post.is_hidden():
+                continue
+
             # 对正文进行简单的去重检查（去除首尾空格）
+            # 注意：不再做物理删除，避免误伤；重复内容交给工具脚本标记 hidden
             content_hash = post.content.strip()
             if content_hash in seen_content:
-                print(f"  🗑️ Deleting duplicate: {post_file.name}")
-                to_delete.append(post_file)
+                print(f"  ⚠️ Duplicate content detected (skipped): {post_file.name}")
                 continue
             
             seen_content.add(content_hash)
             posts.append(post)
         except Exception as e:
             print(f"⚠️ Error parsing {post_file.name}: {e}")
-    
-    # 执行物理删除
-    for f in to_delete:
-        try:
-            os.remove(f)
-        except:
-            pass
             
     # 按时间降序排序 (最新的在前)
     posts.sort(key=get_post_datetime, reverse=True)
