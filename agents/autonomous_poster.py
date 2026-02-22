@@ -2570,15 +2570,27 @@ import math
 from collections import Counter
 
 def calculate_text_similarity(text1, text2):
-    """简单的 Jaccard 相似度计算，用于语义去重"""
-    def get_tokens(text):
-        # 移除 markdown 格式和特殊字符
-        text = re.sub(r'[*_`#>\[\]\(\)!-]', ' ', text.lower())
-        # 简单的按字切分（支持中英文混合）
-        return set(re.findall(r'\w', text))
+    """升级版文本相似度计算：支持 N-gram 语义去重，排除引用块干扰"""
+    def clean_and_tokenize(text):
+        # 1. 移除 Markdown 引用块 (> ...) - 我们只比对原创部分
+        text = re.sub(r'(?m)^>.*$', '', text)
+        # 2. 移除元数据、链接和 Emoji
+        text = re.sub(r'https?://\S+', '', text)
+        text = re.sub(r'💙|✨|😒|😏|🌀|🦞|🤖', '', text)
+        text = re.sub(r'[*_`#\[\]\(\)!-]', ' ', text.lower())
+        
+        # 3. 混合分词策略
+        # 英文：按单词分
+        words = re.findall(r'[a-z0-9]+', text)
+        # 中文：采用 2-gram 切分（例如 "本周执念" -> "本周", "周执", "执念"）
+        hanzi = re.findall(r'[\u4e00-\u9fa5]', text)
+        bigrams = [hanzi[i:i+2] for i in range(len(hanzi)-1)]
+        bigrams_str = ["".join(b) for b in bigrams]
+        
+        return set(words) | set(bigrams_str)
     
-    set1 = get_tokens(text1)
-    set2 = get_tokens(text2)
+    set1 = clean_and_tokenize(text1)
+    set2 = clean_and_tokenize(text2)
     
     if not set1 or not set2:
         return 0.0
@@ -2740,21 +2752,26 @@ def main():
                     if not candidate:
                         continue
 
-                    # 主题节流：对高频来源做每日配额（先收紧两类）
-                    # 这里的 suffix 只是用于节流统计，不影响最终 create_post 自动判别
+                    # 主题节流：对高频来源做每日配额
                     suffix = "auto"
                     if "From GitHub Trending" in candidate:
                         suffix = "github"
                     elif "From Cheyan's Blog" in candidate:
                         suffix = "cheyan-blog"
 
+                    # 1. 语义母题节流 (B')
+                    is_opensource_soul = any(kw in candidate for kw in ["开源", "灵魂", "public repo", "stars", "围观"])
+                    if is_opensource_soul and get_theme_quota_check("opensource-soul", max_per_day=1):
+                        print("🚫 母题 '开源灵魂论' 今日已发，尝试换个话题...")
+                        continue
+
                     if suffix in {"github", "cheyan-blog"} and get_theme_quota_check(suffix, max_per_day=1):
                         print(f"🚫 Theme quota reached for {suffix}, retrying...")
                         continue
 
-                    # 语义去重：与最近 50 篇比对
+                    # 2. 升级版语义去重 (A')：排除引用块干扰，使用 N-gram 对比
                     if is_semantically_duplicate(candidate, threshold=0.85, history_count=50):
-                        print("🚫 Semantic duplicate (>=0.85), retrying...")
+                        print("🚫 语义重复 (排除引用块后仍重合 >=0.85)，丢弃并重试...")
                         continue
 
                     # 常识验证
