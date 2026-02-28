@@ -745,6 +745,10 @@ def render_posts():
         f.write(html_output)
     
     # 3. 生成日期页面
+    # 先清理旧日期页面，避免历史脏文件残留（例如异常文件名）
+    for stale_file in date_pages_dir.glob("*.html"):
+        stale_file.unlink(missing_ok=True)
+
     print(f"📅 Generating {len(all_dates)} date pages...")
     for i, date_key in enumerate(all_dates):
         date_posts = posts_by_date[date_key]
