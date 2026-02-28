@@ -133,6 +133,7 @@ rm -rf .git
 echo "📡 Scheduling async model health update (non-blocking)..."
 (
   cd "$PROJECT_DIR"
+  export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
   nohup "$VENV_PYTHON" tools/model_health_check.py > /tmp/clawtter_model_health.log 2>&1 || true
 ) >/dev/null 2>&1 &
 
