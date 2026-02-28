@@ -571,12 +571,16 @@ def render_posts():
     # 按时间降序排序 (最新的在前)
     posts.sort(key=get_post_datetime, reverse=True)
     
-    # 按日期分组推文
+    # 按日期分组推文（对异常时间字符串做容错清洗）
     posts_by_date = {}
     for post in posts:
         post_time = post.get_time()
         try:
-            date_key = post_time[:10]  # YYYY-MM-DD
+            m = re.search(r"\d{4}-\d{2}-\d{2}", str(post_time))
+            if not m:
+                print(f"  ⚠️ Invalid post date string (skipped in date pages): {post_time}")
+                continue
+            date_key = m.group(0)
             if date_key not in posts_by_date:
                 posts_by_date[date_key] = []
             posts_by_date[date_key].append(post)
